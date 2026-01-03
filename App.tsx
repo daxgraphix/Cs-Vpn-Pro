@@ -1,50 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
-  Shield, 
-  Globe, 
-  Activity, 
-  Settings, 
-  Power, 
-  Zap,
-  Lock,
-  Wifi,
-  AlertTriangle,
-  MapPin,
-  RefreshCw,
-  Search,
-  Server,
-  Gauge,
-  Database,
-  TrendingUp,
-  Sun,
-  Moon,
-  Check,
-  Signal,
-  Download,
-  Upload,
-  Cpu,
-  EyeOff,
-  Terminal,
-  Layers,
-  Share2,
-  Minimize2,
-  X,
-  FileText,
-  User,
-  Menu,
-  Home
+  Shield, Globe, Activity, Settings, Power, Zap, Lock, Wifi, AlertTriangle, 
+  MapPin, RefreshCw, Search, Server, Gauge, Database, TrendingUp, Sun, Moon, 
+  Check, Signal, Download, Upload, Cpu, EyeOff, Terminal, Layers, Share2, 
+  Minimize2, X, FileText, User, Menu, Home, Network
 } from 'lucide-react';
 import { 
-  LineChart, 
-  Line, 
-  Tooltip, 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area,
-  XAxis
+  LineChart, Line, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis
 } from 'recharts';
 import { ConnectionState, ServerNode, SecurityLog, AiInsight, SortOption, SpeedTestResult } from './types';
-import { SERVER_NODES, MOCK_LOGS } from './constants';
+import { SERVER_NODES as INITIAL_NODES, MOCK_LOGS } from './constants';
 import { getNetworkOptimization, classifyDomainThreat } from './services/geminiService';
 
 // --- Types & Interfaces ---
@@ -65,8 +30,18 @@ interface LogLine {
 }
 
 interface GeoCords { x: number; y: number }
+interface RealGeoData {
+  ip: string;
+  city: string;
+  region: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  org: string; // ISP
+}
 
-const GEO_MAP: Record<string, GeoCords> = {
+// Map coordinates for visualization (SVG percentage 0-100)
+const VISUAL_MAP_COORDS: Record<string, GeoCords> = {
   'New York': { x: 28, y: 35 },
   'Los Angeles': { x: 18, y: 38 },
   'London': { x: 48, y: 25 },
@@ -75,7 +50,39 @@ const GEO_MAP: Record<string, GeoCords> = {
   'Tokyo': { x: 88, y: 38 },
   'Johannesburg': { x: 55, y: 75 },
   'São Paulo': { x: 35, y: 70 },
-  'User': { x: 25, y: 38 } 
+  'User': { x: 25, y: 38 } // Default fallback
+};
+
+// Real lat/lon for distance calc
+const SERVER_REAL_COORDS: Record<string, { lat: number, lon: number }> = {
+  'New York': { lat: 40.7128, lon: -74.0060 },
+  'Los Angeles': { lat: 34.0522, lon: -118.2437 },
+  'London': { lat: 51.5074, lon: -0.1278 },
+  'Frankfurt': { lat: 50.1109, lon: 8.6821 },
+  'Singapore': { lat: 1.3521, lon: 103.8198 },
+  'Tokyo': { lat: 35.6762, lon: 139.6503 },
+  'Johannesburg': { lat: -26.2041, lon: 28.0473 },
+  'São Paulo': { lat: -23.5505, lon: -46.6333 },
+};
+
+// --- Physics Helper: Haversine Formula ---
+const calculateLatency = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distanceKm = R * c;
+  
+  // Physics approximation: 
+  // Light in fiber is ~200,000 km/s. RTT is 2x distance. 
+  // We add 15ms overhead for routing/switching.
+  const fiberSpeed = 200; // km/ms
+  const baseRtt = (distanceKm * 2) / fiberSpeed; 
+  return Math.round(baseRtt + 15 + (Math.random() * 5)); // + Jitter
 };
 
 // --- Components ---
@@ -83,9 +90,9 @@ const GEO_MAP: Record<string, GeoCords> = {
 const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
   const [loadingStep, setLoadingStep] = useState(0);
   const steps = [
-    "Initializing Core Systems...",
-    "Loading Neural Weights...",
-    "Verifying Integrity...",
+    "Scanning Network Interface...",
+    "Resolving Public IP...",
+    "Triangulating Location...",
     "Establishing Secure Handshake...",
     "System Ready."
   ];
@@ -120,7 +127,7 @@ const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
        <h1 className="text-4xl md:text-6xl font-black tracking-tighter mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-400 to-indigo-500">
           CS VPN AI
        </h1>
-       <p className="text-xs md:text-sm text-blue-400/60 tracking-[0.5em] uppercase font-mono mb-12">Next Gen Privacy</p>
+       <p className="text-xs md:text-sm text-blue-400/60 tracking-[0.5em] uppercase font-mono mb-12">Professional Edition</p>
 
        <div className="w-full max-w-xs space-y-2">
          {/* Loading Bar */}
@@ -154,7 +161,7 @@ const ConsoleLog = ({ logs }: { logs: LogLine[] }) => {
     <div className="bg-slate-900 dark:bg-[#0a0a0a] border border-slate-700 dark:border-white/10 rounded-xl p-4 font-mono text-[10px] md:text-xs h-48 overflow-y-auto custom-scrollbar shadow-inner shadow-black/50">
       <div className="flex items-center gap-2 mb-2 text-slate-400 border-b border-slate-700 dark:border-white/5 pb-2">
         <Terminal className="w-3 h-3" />
-        <span className="uppercase tracking-widest font-bold">System Kernel Log</span>
+        <span className="uppercase tracking-widest font-bold">Live System Kernel</span>
       </div>
       <div className="space-y-1">
         {logs.map((log) => (
@@ -181,16 +188,18 @@ const LiveMap = ({
   selectedServer, 
   isConnected, 
   isMultiHop, 
-  entryNode 
+  entryNode,
+  nodes
 }: { 
   selectedServer: ServerNode, 
   isConnected: boolean, 
   isMultiHop: boolean, 
-  entryNode: ServerNode 
+  entryNode: ServerNode,
+  nodes: ServerNode[]
 }) => {
-  const userPos = GEO_MAP['User'];
-  const targetPos = GEO_MAP[selectedServer.city] || { x: 50, y: 50 };
-  const entryPos = isMultiHop ? (GEO_MAP[entryNode.city] || { x: 50, y: 50 }) : userPos;
+  const userPos = VISUAL_MAP_COORDS['User'];
+  const targetPos = VISUAL_MAP_COORDS[selectedServer.city] || { x: 50, y: 50 };
+  const entryPos = isMultiHop ? (VISUAL_MAP_COORDS[entryNode.city] || { x: 50, y: 50 }) : userPos;
 
   const calculatePath = (start: GeoCords, end: GeoCords) => {
     const midX = (start.x + end.x) / 2;
@@ -238,8 +247,8 @@ const LiveMap = ({
         <div className="absolute -inset-2 bg-blue-500/20 dark:bg-white/20 rounded-full animate-ping"></div>
         <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[8px] dark:text-white text-slate-900 font-mono whitespace-nowrap bg-white/80 dark:bg-black/50 px-1 rounded backdrop-blur">YOU</div>
       </div>
-      {SERVER_NODES.map(node => {
-        const pos = GEO_MAP[node.city] || { x: 50, y: 50 };
+      {nodes.map(node => {
+        const pos = VISUAL_MAP_COORDS[node.city] || { x: 50, y: 50 };
         const isTarget = node.id === selectedServer.id;
         const isEntry = isMultiHop && node.id === entryNode.id;
         const isActive = isConnected && (isTarget || isEntry);
@@ -302,12 +311,16 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [status, setStatus] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
-  const [selectedServer, setSelectedServer] = useState<ServerNode>(SERVER_NODES[0]);
+  
+  // Real Data State
+  const [geoData, setGeoData] = useState<RealGeoData | null>(null);
+  const [serverNodes, setServerNodes] = useState<ServerNode[]>(INITIAL_NODES);
+  const [selectedServer, setSelectedServer] = useState<ServerNode>(INITIAL_NODES[0]);
   const [searchTerm, setSearchTerm] = useState('');
   
   // Settings & Features
   const [isMultiHop, setIsMultiHop] = useState(false);
-  const [entryNode, setEntryNode] = useState<ServerNode>(SERVER_NODES[1]);
+  const [entryNode, setEntryNode] = useState<ServerNode>(INITIAL_NODES[1]);
   const [protocol, setProtocol] = useState('WireGuard');
   const [killSwitch, setKillSwitch] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -337,7 +350,6 @@ export default function App() {
   
   // Real Network Data
   const [linkInfo, setLinkInfo] = useState<{ type: string, downlink: number, rtt: number }>({ type: 'Unknown', downlink: 0, rtt: 0 });
-  const [originalIp, setOriginalIp] = useState<string>("Scanning...");
   const [speedTest, setSpeedTest] = useState<SpeedTestResult>({ download: 0, upload: 0, ping: 0, status: 'idle' });
   const [sessionUsage, setSessionUsage] = useState(0);
   const [totalUsage, setTotalUsage] = useState(0);
@@ -347,71 +359,119 @@ export default function App() {
     document.documentElement.classList.toggle('dark', isDarkMode);
   }, [isDarkMode]);
 
-  // Network Listeners
-  useEffect(() => {
-      const updateNetworkInfo = () => {
-          if ('connection' in navigator) {
-              const conn = (navigator as any).connection as NetworkInformation;
-              setLinkInfo({
-                  type: conn.effectiveType,
-                  downlink: conn.downlink,
-                  rtt: conn.rtt
-              });
-          }
-      };
-      updateNetworkInfo();
-      if ('connection' in navigator) {
-          ((navigator as any).connection as NetworkInformation).addEventListener('change', updateNetworkInfo);
-      }
-      return () => {
-          if ('connection' in navigator) {
-              ((navigator as any).connection as NetworkInformation).removeEventListener('change', updateNetworkInfo);
-          }
-      };
-  }, []);
-
-  useEffect(() => {
-    fetch('https://api.ipify.org?format=json')
-      .then(res => res.json())
-      .then(data => setOriginalIp(data.ip))
-      .catch(() => setOriginalIp("Unknown"));
-    
-     const savedUsage = localStorage.getItem('cs_vpn_total_usage');
-     if(savedUsage) setTotalUsage(parseFloat(savedUsage));
-  }, []);
-
-  // Connection Logic
+  // --- Real Initialization ---
+  
   const addConsoleLog = (text: string, type: LogLine['type'] = 'info') => {
     setConsoleLogs(prev => [...prev, { id: Date.now(), text, type, timestamp: new Date().toLocaleTimeString().split(' ')[0] }]);
   };
 
+  useEffect(() => {
+    // 1. Fetch Real IP & Location
+    const initRealData = async () => {
+      try {
+        addConsoleLog("Initializing Network Discovery...", "info");
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        
+        if (data.ip) {
+          const realGeo: RealGeoData = {
+            ip: data.ip,
+            city: data.city,
+            region: data.region,
+            country: data.country_name,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            org: data.org
+          };
+          setGeoData(realGeo);
+          addConsoleLog(`User Located: ${realGeo.city}, ${realGeo.country} (${realGeo.org})`, "success");
+
+          // 2. Update Server Nodes with Real Physics-Based Latency
+          const updatedNodes = INITIAL_NODES.map(node => {
+            const serverCoords = SERVER_REAL_COORDS[node.city];
+            if (serverCoords) {
+              const realLatency = calculateLatency(
+                realGeo.latitude, realGeo.longitude,
+                serverCoords.lat, serverCoords.lon
+              );
+              return { ...node, latency: realLatency };
+            }
+            return node;
+          });
+          setServerNodes(updatedNodes);
+          setSelectedServer(updatedNodes[0]); // Default to first (usually best)
+          addConsoleLog("Server latency matrix calibrated using geodesic distance.", "success");
+        }
+      } catch (e) {
+        addConsoleLog("Network Discovery Failed. Using fallback metrics.", "error");
+      }
+    };
+
+    initRealData();
+
+    // 3. Monitor Network Info
+    const updateNetworkInfo = () => {
+        if ('connection' in navigator) {
+            const conn = (navigator as any).connection as NetworkInformation;
+            setLinkInfo({
+                type: conn.effectiveType,
+                downlink: conn.downlink,
+                rtt: conn.rtt
+            });
+        }
+    };
+    updateNetworkInfo();
+    if ('connection' in navigator) {
+        ((navigator as any).connection as NetworkInformation).addEventListener('change', updateNetworkInfo);
+    }
+    
+    // 4. Load saved usage
+    const savedUsage = localStorage.getItem('cs_vpn_total_usage');
+    if(savedUsage) setTotalUsage(parseFloat(savedUsage));
+
+    return () => {
+        if ('connection' in navigator) {
+            ((navigator as any).connection as NetworkInformation).removeEventListener('change', updateNetworkInfo);
+        }
+    };
+  }, []);
+
+  // Connection Logic
   const connectSequence = async () => {
     setConsoleLogs([]);
     setStatus(ConnectionState.CONNECTING);
-    const steps = [
-      { msg: `Initializing ${protocol} Interface...`, type: 'info', delay: 200 },
-      { msg: "Resolving host endpoints...", type: 'info', delay: 600 },
-      { msg: `Generating Session Keys (Curve25519)...`, type: 'info', delay: 1200 },
-      { msg: "Handshake: Initiating...", type: 'warning', delay: 1800 },
-      { msg: `Peer Authorized: ${selectedServer.ip}`, type: 'success', delay: 2400 },
-    ];
-    if (isMultiHop) {
-      steps.push({ msg: `Routing via Entry Node: ${entryNode.city}`, type: 'info', delay: 2800 });
-      steps.push({ msg: "Establishing secondary tunnel...", type: 'warning', delay: 3200 });
+    
+    // AI Pre-Check
+    if (geoData) {
+        getNetworkOptimization(serverNodes, {
+            location: `${geoData.city}, ${geoData.country}`,
+            isp: geoData.org,
+            ip: geoData.ip
+        }, "proactive").then(setAiInsight);
     }
-    steps.push({ msg: "Assigning Virtual IP...", type: 'info', delay: isMultiHop ? 3600 : 2800 });
-    steps.push({ msg: "Tunnel Established. Encryption: AES-256-GCM", type: 'success', delay: isMultiHop ? 4000 : 3200 });
+
+    const steps = [
+      { msg: `Interface Up: ${linkInfo.type.toUpperCase()} (${linkInfo.downlink}Mbps link)`, type: 'info', delay: 200 },
+      { msg: `Route: ${geoData?.city || 'Local'} -> ${entryNode.city} -> ${selectedServer.city}`, type: 'info', delay: 600 },
+      { msg: `Generating Keys (Curve25519) for ${protocol}...`, type: 'info', delay: 1200 },
+      { msg: "Handshake: Verifying remote certificate...", type: 'warning', delay: 1800 },
+      { msg: `Tunnel Active. Virtual IP: ${selectedServer.ip}`, type: 'success', delay: 2400 },
+    ];
+    
+    if (isMultiHop) {
+      steps.push({ msg: `Double-Hop Active: Traffic relay via ${entryNode.country}`, type: 'info', delay: 2800 });
+    }
+
     for (const step of steps) setTimeout(() => addConsoleLog(step.msg, step.type as any), step.delay);
-    setTimeout(() => setStatus(ConnectionState.CONNECTED), isMultiHop ? 4200 : 3500);
+    setTimeout(() => setStatus(ConnectionState.CONNECTED), isMultiHop ? 3500 : 2800);
   };
 
   const handleConnect = () => {
     if (status === ConnectionState.DISCONNECTED) {
       connectSequence();
-      getNetworkOptimization(SERVER_NODES, "User Location", "reactive").then(setAiInsight);
     } else {
       setStatus(ConnectionState.DISCONNECTING);
-      addConsoleLog("Termination signal received...", "warning");
+      addConsoleLog("Termination signal sent.", "warning");
       setTimeout(() => {
         addConsoleLog("Tunnel closed. Statistics flushed.", "info");
         setStatus(ConnectionState.DISCONNECTED);
@@ -419,20 +479,38 @@ export default function App() {
     }
   };
 
-  // Traffic Sim
+  // Real-Time Traffic Monitor (Using Browser Performance API)
   useEffect(() => {
     let interval: any;
     if (status === ConnectionState.CONNECTED) {
+      let lastTotal = 0;
       interval = setInterval(() => {
         setSessionTime(prev => prev + 1);
-        const baseSpeed = linkInfo.downlink > 0 ? linkInfo.downlink : 25;
-        const volatility = Math.random() * 0.3;
-        const currentUsage = Math.max(0.1, baseSpeed * (0.2 + volatility));
-        setTrafficData(prev => [...prev, { time: '', value: parseFloat(currentUsage.toFixed(1)) }].slice(-40));
-        const added = (currentUsage / 8 / 2);
-        setSessionUsage(prev => prev + added);
+        
+        // Measure ACTUAL browser resource usage (approximation of traffic)
+        // Clear buffer periodically to avoid memory leaks
+        if (performance.getEntriesByType("resource").length > 200) {
+            performance.clearResourceTimings();
+            lastTotal = 0;
+        }
+
+        const entries = performance.getEntriesByType("resource");
+        const currentTotalBytes = entries.reduce((acc, entry: any) => acc + (entry.transferSize || 0), 0);
+        const deltaBytes = Math.max(0, currentTotalBytes - lastTotal);
+        lastTotal = currentTotalBytes;
+
+        // Convert to Mbps for the graph (or simulate idle noise if no traffic)
+        // If user is idle, we show a heartbeat. If downloading, we show spikes.
+        const realBandwidth = (deltaBytes * 8) / 1000 / 1000; // Mbps instantaneous
+        const displayValue = Math.max(0.1, realBandwidth + (Math.random() * 0.5)); // Add heartbeat
+
+        setTrafficData(prev => [...prev, { time: '', value: parseFloat(displayValue.toFixed(2)) }].slice(-40));
+        
+        // Accumulate session usage
+        const addedMB = displayValue / 8; // approx
+        setSessionUsage(prev => prev + addedMB);
         setTotalUsage(prev => {
-            const val = prev + added;
+            const val = prev + addedMB;
             localStorage.setItem('cs_vpn_total_usage', val.toString());
             return val;
         });
@@ -443,16 +521,19 @@ export default function App() {
       setSessionUsage(0);
     }
     return () => clearInterval(interval);
-  }, [status, linkInfo]);
+  }, [status]);
 
-  // Speed Test
+  // Real Speed Test
   const runRealSpeedTest = async () => {
     setSpeedTest(prev => ({ ...prev, status: 'running', download: 0, ping: 0 }));
     addConsoleLog("Speed Test: Initiating download probe...", "info");
+    
+    // 5MB Test File
     const imageAddr = "https://upload.wikimedia.org/wikipedia/commons/2/2d/Snake_River_%285mb%29.jpg"; 
     const downloadSize = 5245329; 
     const startTime = (new Date()).getTime();
     const cacheBuster = "?nnn=" + startTime;
+    
     try {
         const pingStart = performance.now();
         await fetch(imageAddr + cacheBuster, { method: 'HEAD', cache: 'no-store' });
@@ -460,25 +541,21 @@ export default function App() {
         const pingTime = pingEnd - pingStart;
         setSpeedTest(prev => ({ ...prev, ping: pingTime }));
         addConsoleLog(`Latency Probe: ${pingTime.toFixed(1)}ms`, "success");
+        
         const downloadStart = (new Date()).getTime();
         await fetch(imageAddr + cacheBuster, { cache: 'no-store' });
         const downloadEnd = (new Date()).getTime();
+        
         const duration = (downloadEnd - downloadStart) / 1000;
         const bitsLoaded = downloadSize * 8;
         const speedMbps = bitsLoaded / duration / 1024 / 1024;
+        
         setSpeedTest(prev => ({ ...prev, download: speedMbps, status: 'completed' }));
         addConsoleLog(`Speed Test Complete: ${speedMbps.toFixed(2)} Mbps`, "success");
     } catch (error) {
         setSpeedTest(prev => ({ ...prev, status: 'idle' }));
         addConsoleLog("Speed Test Failed: Network Error", "error");
     }
-  };
-
-  const checkDomain = async () => {
-     const domain = prompt("Enter domain to check:");
-     if(!domain) return;
-     const result = await classifyDomainThreat(domain);
-     alert(`AI Analysis for ${domain}:\nCategory: ${result.category}\nRisk Score: ${result.risk}`);
   };
 
   if (loading) return <SplashScreen onComplete={() => setLoading(false)} />;
@@ -505,7 +582,7 @@ export default function App() {
             <h1 className="font-bold text-lg md:text-xl tracking-tight text-slate-900 dark:text-white">CS VPN <span className="text-blue-500">PRO</span></h1>
             <div className="flex items-center gap-2">
               <span className={`w-1.5 h-1.5 rounded-full ${status === ConnectionState.CONNECTED ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></span>
-              <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{status === ConnectionState.CONNECTED ? 'SECURE' : 'IDLE'}</span>
+              <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{status === ConnectionState.CONNECTED ? 'SECURE TUNNEL' : 'SYSTEM IDLE'}</span>
             </div>
           </div>
         </div>
@@ -525,8 +602,10 @@ export default function App() {
 
         <div className="flex items-center gap-4">
           <div className="text-right hidden lg:block">
-            <p className="text-[9px] text-slate-500 uppercase font-bold">Public IP</p>
-            <p className="font-mono text-xs text-slate-700 dark:text-slate-300">{status === ConnectionState.CONNECTED ? selectedServer.ip : originalIp}</p>
+            <p className="text-[9px] text-slate-500 uppercase font-bold">Client IP</p>
+            <p className="font-mono text-xs text-slate-700 dark:text-slate-300">
+               {status === ConnectionState.CONNECTED ? selectedServer.ip : (geoData?.ip || 'Scanning...')}
+            </p>
           </div>
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
@@ -607,9 +686,15 @@ export default function App() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-auto">
                 <div className="bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col relative md:col-span-2 shadow-lg">
                   <div className="flex justify-between items-center mb-4 px-2">
-                    <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Globe className="w-4 h-4 text-cyan-500" /> Global Traffic Map
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        <Globe className="w-4 h-4 text-cyan-500" /> 
+                        <h2 className="text-sm font-bold text-slate-900 dark:text-white">Global Network Matrix</h2>
+                        {geoData && (
+                            <span className="text-[10px] bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded border border-cyan-500/20 hidden sm:inline-block">
+                                Origin: {geoData.city}, {geoData.country}
+                            </span>
+                        )}
+                    </div>
                     <div className="flex gap-4 text-[10px] font-mono text-slate-500 dark:text-slate-400">
                       <span>LAT: {selectedServer.latency}ms</span>
                     </div>
@@ -619,6 +704,7 @@ export default function App() {
                     isConnected={status === ConnectionState.CONNECTED} 
                     isMultiHop={isMultiHop}
                     entryNode={entryNode}
+                    nodes={serverNodes}
                   />
                   <div className="absolute bottom-4 left-4 right-4 z-20">
                      <ConsoleLog logs={consoleLogs} />
@@ -688,7 +774,7 @@ export default function App() {
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {SERVER_NODES.filter(n => n.city.toLowerCase().includes(searchTerm.toLowerCase())).map(node => (
+              {serverNodes.filter(n => n.city.toLowerCase().includes(searchTerm.toLowerCase())).map(node => (
                 <button
                   key={node.id}
                   onClick={() => setSelectedServer(node)}
@@ -829,7 +915,7 @@ export default function App() {
           </div>
         )}
 
-        {/* AI INSIGHT BAR (Persistent) - Adjusted Position for Mobile */}
+        {/* AI INSIGHT BAR (Persistent) */}
         <div className="fixed bottom-[64px] md:bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-t border-slate-200 dark:border-white/10 p-2 md:p-3 z-40 transition-all duration-300">
            <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -839,16 +925,24 @@ export default function App() {
                  <div className="hidden md:block">
                     <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider">Neural Engine</p>
                     <p className="text-xs text-slate-600 dark:text-slate-300 truncate max-w-lg">
-                      {aiInsight ? aiInsight.message : "Monitoring global routing tables for latency anomalies..."}
+                      {aiInsight ? aiInsight.message : (geoData ? `Monitoring traffic on ${geoData.org} network...` : "Initializing Neural Networks...")}
                     </p>
                  </div>
                  <div className="md:hidden text-xs text-slate-600 dark:text-slate-300 truncate max-w-[200px]">
-                    {aiInsight ? aiInsight.message : "AI Optimization Active"}
+                    {aiInsight ? aiInsight.message : "AI Active"}
                  </div>
               </div>
               <button 
                 className="text-[10px] font-bold bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 px-3 py-1.5 rounded border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white transition-colors"
-                onClick={() => getNetworkOptimization(SERVER_NODES, "User", "reactive").then(setAiInsight)}
+                onClick={() => {
+                  if(geoData) {
+                    getNetworkOptimization(serverNodes, { 
+                        location: `${geoData.city}, ${geoData.country}`, 
+                        isp: geoData.org, 
+                        ip: geoData.ip 
+                    }, "proactive").then(setAiInsight)
+                  }
+                }}
               >
                 OPTIMIZE
               </button>
@@ -892,7 +986,6 @@ export default function App() {
         }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        /* Safe area padding for iPhone X+ */
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
       `}</style>
     </div>

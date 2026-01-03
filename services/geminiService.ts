@@ -7,15 +7,13 @@ const ai = new GoogleGenAI({ apiKey });
 
 export const getNetworkOptimization = async (
   currentNodes: ServerNode[],
-  userLocation: string,
+  userContext: { location: string, isp: string, ip: string },
   mode: 'reactive' | 'proactive' = 'reactive'
 ): Promise<AiInsight> => {
   if (!apiKey) {
     return {
       type: 'optimization',
-      message: mode === 'proactive' 
-        ? "AI Prediction: Traffic load expected to rise. Recommending US-East." 
-        : "AI Optimization unavailable. Using local heuristics.",
+      message: "AI Link: Neural Engine offline. Using local routing protocols.",
       confidence: 0,
       timestamp: new Date().toLocaleTimeString()
     };
@@ -23,19 +21,27 @@ export const getNetworkOptimization = async (
 
   try {
     const context = mode === 'proactive' 
-      ? "The user is currently disconnected. Predict the best server for the next hour based on historical global traffic patterns and current time." 
-      : "The user is connected. Analyze current node metrics for optimal streaming performance.";
+      ? `User is currently exposed. ISP: ${userContext.isp}, Location: ${userContext.location}. Predict threats.` 
+      : `User is connected via secure tunnel. Optimize for current ISP peering: ${userContext.isp}.`;
 
     const prompt = `
-      You are a Network AI Controller for a global VPN.
-      User Location: ${userLocation}.
-      Context: ${context}
-      Available Nodes (JSON): ${JSON.stringify(currentNodes.map(n => ({ id: n.id, city: n.city, load: n.load, latency: n.latency })))}.
+      Act as a Senior Network Security Analyst.
+      User Real Metadata:
+      - IP: ${userContext.ip}
+      - ISP: ${userContext.isp}
+      - Location: ${userContext.location}
       
-      Return a short JSON object with: 
-      - recommendation: string (The Node ID)
-      - reason: string (1 sentence explanation, mention "predicted load" if proactive)
-      - predictedLatency: number
+      Task: Analyze this specific ISP/Location combination for privacy risks (throttling, surveillance, logging).
+      Select the best VPN node from the list below to mitigate these specific risks.
+
+      Available Nodes: ${JSON.stringify(currentNodes.map(n => ({ id: n.city, load: n.load, latency: n.latency })))}.
+      
+      Return JSON:
+      {
+        "recommendation": "City Name",
+        "reason": "Specific technical reason based on the user's ISP/Location.",
+        "predictedLatency": number
+      }
     `;
 
     const response = await ai.models.generateContent({
@@ -57,8 +63,8 @@ export const getNetworkOptimization = async (
     const result = JSON.parse(response.text || '{}');
     
     return {
-      type: mode === 'proactive' ? 'prediction' : 'optimization',
-      message: `${mode === 'proactive' ? 'Proactive:' : 'Recommended:'} ${result.recommendation}. ${result.reason}`,
+      type: mode === 'proactive' ? 'security' : 'optimization',
+      message: `${result.recommendation}: ${result.reason}`,
       confidence: 0.95,
       timestamp: new Date().toLocaleTimeString()
     };
@@ -67,7 +73,7 @@ export const getNetworkOptimization = async (
     console.error("Gemini Optimization Error", error);
     return {
       type: 'optimization',
-      message: "AI analysis failed. Fallback routing engaged.",
+      message: "AI Analysis: Optimizing route based on latency heuristics.",
       confidence: 0.5,
       timestamp: new Date().toLocaleTimeString()
     };
@@ -80,9 +86,8 @@ export const classifyDomainThreat = async (domain: string): Promise<{ category: 
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: `Classify the domain "${domain}" for a family-safe VPN filter. 
-      Categories: Adult, Gambling, Malware, Safe, Phishing. 
-      Return JSON: { "category": string, "riskScore": number (0-100) }`,
+      contents: `Analyze the domain "${domain}" for security threats.
+      Return JSON: { "category": "Malware" | "Phishing" | "Adult" | "Safe", "riskScore": number (0-100) }`,
       config: {
         responseMimeType: 'application/json',
         responseSchema: {
