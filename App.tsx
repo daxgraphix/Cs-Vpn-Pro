@@ -601,12 +601,31 @@ export default function App() {
         </nav>
 
         <div className="flex items-center gap-4">
-          <div className="text-right hidden lg:block">
-            <p className="text-[9px] text-slate-500 uppercase font-bold">Client IP</p>
-            <p className="font-mono text-xs text-slate-700 dark:text-slate-300">
-               {status === ConnectionState.CONNECTED ? selectedServer.ip : (geoData?.ip || 'Scanning...')}
-            </p>
+          
+          {/* Enhanced Network Details Section */}
+          <div className="hidden lg:flex items-center gap-4 text-right bg-slate-50 dark:bg-white/5 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-white/5">
+            <div>
+               <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">IP Address</p>
+               <p className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200">
+                  {status === ConnectionState.CONNECTED ? selectedServer.ip : (geoData?.ip || 'Scanning...')}
+               </p>
+            </div>
+            <div className="w-px h-6 bg-slate-200 dark:bg-white/10"></div>
+            <div>
+               <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Provider</p>
+               <p className="font-mono text-xs text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
+                  {status === ConnectionState.CONNECTED ? 'Secure Tunnel' : (geoData?.org || 'Detecting...')}
+               </p>
+            </div>
+             <div className="w-px h-6 bg-slate-200 dark:bg-white/10"></div>
+            <div>
+               <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Location</p>
+               <p className="font-mono text-xs text-slate-600 dark:text-slate-300">
+                  {status === ConnectionState.CONNECTED ? `${selectedServer.city}, ${selectedServer.country}` : (geoData ? `${geoData.city}, ${geoData.country}` : 'Locating...')}
+               </p>
+            </div>
           </div>
+
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
             className="p-2 bg-slate-100 dark:bg-white/5 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
