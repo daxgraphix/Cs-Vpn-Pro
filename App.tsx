@@ -3,7 +3,7 @@ import {
   Shield, Globe, Activity, Settings, Power, Zap, Lock, Wifi, AlertTriangle, 
   MapPin, RefreshCw, Search, Server, Gauge, Database, TrendingUp, Sun, Moon, 
   Check, Signal, Download, Upload, Cpu, EyeOff, Terminal, Layers, Share2, 
-  Minimize2, X, FileText, User, Menu, Home, Network
+  Minimize2, X, FileText, User, Menu, Home, Network, Loader2
 } from 'lucide-react';
 import { 
   LineChart, Line, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis
@@ -158,7 +158,7 @@ const ConsoleLog = ({ logs }: { logs: LogLine[] }) => {
   useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [logs]);
 
   return (
-    <div className="bg-slate-900 dark:bg-[#0a0a0a] border border-slate-700 dark:border-white/10 rounded-xl p-4 font-mono text-[10px] md:text-xs h-48 overflow-y-auto custom-scrollbar shadow-inner shadow-black/50">
+    <div className="bg-[#1e293b] dark:bg-[#0a0a0a] border border-slate-700 dark:border-white/10 rounded-xl p-4 font-mono text-[10px] md:text-xs h-48 overflow-y-auto custom-scrollbar shadow-inner shadow-black/50">
       <div className="flex items-center gap-2 mb-2 text-slate-400 border-b border-slate-700 dark:border-white/5 pb-2">
         <Terminal className="w-3 h-3" />
         <span className="uppercase tracking-widest font-bold">Live System Kernel</span>
@@ -168,10 +168,10 @@ const ConsoleLog = ({ logs }: { logs: LogLine[] }) => {
           <div key={log.id} className="flex gap-3 animate-fade-in">
             <span className="text-slate-500 dark:text-slate-600">[{log.timestamp}]</span>
             <span className={`${
-              log.type === 'success' ? 'text-green-500 dark:text-green-400' :
-              log.type === 'warning' ? 'text-yellow-500 dark:text-yellow-400' :
-              log.type === 'error' ? 'text-red-500 dark:text-red-400' :
-              'text-blue-500 dark:text-blue-300'
+              log.type === 'success' ? 'text-green-400' :
+              log.type === 'warning' ? 'text-yellow-400' :
+              log.type === 'error' ? 'text-red-400' :
+              'text-blue-400'
             }`}>
               {log.type === 'success' && '✓ '}
               {log.text}
@@ -208,7 +208,7 @@ const LiveMap = ({
   };
 
   return (
-    <div className="relative w-full aspect-[2/1] bg-slate-100 dark:bg-[#0f111a] rounded-xl overflow-hidden border border-slate-200 dark:border-white/5 shadow-inner dark:shadow-black/20 group transition-colors">
+    <div className="relative w-full aspect-[2/1] bg-slate-200 dark:bg-[#0f111a] rounded-xl overflow-hidden border border-slate-300 dark:border-white/5 shadow-inner dark:shadow-black/20 group transition-colors">
       <div className="absolute inset-0 opacity-10 dark:opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-cover bg-center bg-no-repeat filter sepia hue-rotate-180 dark:invert mix-blend-screen pointer-events-none"></div>
       
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -288,16 +288,16 @@ const ProtocolSelector = ({ current, onChange }: { current: string, onChange: (p
           className={`relative p-3 rounded-xl border text-left transition-all ${
             current === p.id 
             ? 'bg-blue-600/10 border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.15)]' 
-            : 'bg-white dark:bg-[#0f111a] border-slate-200 dark:border-white/5 hover:border-slate-300 dark:hover:border-white/10'
+            : 'bg-white dark:bg-[#0f111a] border-slate-300 dark:border-white/5 hover:border-slate-400 dark:hover:border-white/10'
           }`}
         >
           {current === p.id && <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_#3b82f6]"></div>}
           <div className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-1">{p.name}</div>
           <div className="flex gap-2 text-[9px] font-mono uppercase text-slate-400 mb-2">
             <span className="bg-slate-100 dark:bg-white/5 px-1 rounded">{p.type}</span>
-            <span className={`${p.speed === 'Ultra' ? 'text-green-500 dark:text-green-400' : 'text-blue-500 dark:text-blue-400'}`}>{p.speed}</span>
+            <span className={`${p.speed === 'Ultra' ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>{p.speed}</span>
           </div>
-          <div className="text-[10px] text-slate-500 leading-tight">{p.desc}</div>
+          <div className="text-[10px] text-slate-600 dark:text-slate-500 leading-tight">{p.desc}</div>
         </button>
       ))}
     </div>
@@ -347,6 +347,7 @@ export default function App() {
   const [trafficData, setTrafficData] = useState<any[]>([]);
   const [consoleLogs, setConsoleLogs] = useState<LogLine[]>([]);
   const [aiInsight, setAiInsight] = useState<AiInsight | null>(null);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   
   // Real Network Data
   const [linkInfo, setLinkInfo] = useState<{ type: string, downlink: number, rtt: number }>({ type: 'Unknown', downlink: 0, rtt: 0 });
@@ -441,14 +442,10 @@ export default function App() {
     setConsoleLogs([]);
     setStatus(ConnectionState.CONNECTING);
     
+    addConsoleLog("Secure Core: Initializing...", "info");
+
     // AI Pre-Check
-    if (geoData) {
-        getNetworkOptimization(serverNodes, {
-            location: `${geoData.city}, ${geoData.country}`,
-            isp: geoData.org,
-            ip: geoData.ip
-        }, "proactive").then(setAiInsight);
-    }
+    await handleOptimize(true);
 
     const steps = [
       { msg: `Interface Up: ${linkInfo.type.toUpperCase()} (${linkInfo.downlink}Mbps link)`, type: 'info', delay: 200 },
@@ -476,6 +473,32 @@ export default function App() {
         addConsoleLog("Tunnel closed. Statistics flushed.", "info");
         setStatus(ConnectionState.DISCONNECTED);
       }, 1000);
+    }
+  };
+
+  const handleOptimize = async (silent = false) => {
+    if (isOptimizing) return;
+    setIsOptimizing(true);
+    if (!silent) addConsoleLog("Neural Engine: Manual optimization sequence initiated...", "info");
+
+    const context = geoData ? { 
+        location: `${geoData.city}, ${geoData.country}`, 
+        isp: geoData.org, 
+        ip: geoData.ip 
+    } : {
+        location: "Unknown Location", 
+        isp: "Standard ISP", 
+        ip: "0.0.0.0" 
+    };
+
+    try {
+        const insight = await getNetworkOptimization(serverNodes, context, "proactive");
+        setAiInsight(insight);
+        addConsoleLog(`AI Optimization Complete: ${insight.message}`, "success");
+    } catch (e) {
+        addConsoleLog("AI Optimization Failed: Neural link unstable.", "error");
+    } finally {
+        setIsOptimizing(false);
     }
   };
 
@@ -570,7 +593,7 @@ export default function App() {
                     'shadow-none';
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#050505] text-slate-800 dark:text-slate-200 font-sans selection:bg-blue-500/30 overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen bg-slate-100 dark:bg-[#050505] text-slate-800 dark:text-slate-200 font-sans selection:bg-blue-500/30 overflow-x-hidden transition-colors duration-300">
       
       {/* HEADER */}
       <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-[#050505]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 md:px-6 py-4 flex justify-between items-center transition-colors duration-300">
@@ -588,7 +611,7 @@ export default function App() {
         </div>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex bg-slate-100 dark:bg-[#12141c] p-1 rounded-xl border border-slate-200 dark:border-white/5">
+        <nav className="hidden md:flex bg-slate-200 dark:bg-[#12141c] p-1 rounded-xl border border-slate-300 dark:border-white/5">
           {['dashboard', 'servers', 'security', 'settings'].map(tab => (
             <button 
               key={tab} 
@@ -603,7 +626,7 @@ export default function App() {
         <div className="flex items-center gap-4">
           
           {/* Enhanced Network Details Section */}
-          <div className="hidden lg:flex items-center gap-4 text-right bg-slate-50 dark:bg-white/5 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-white/5">
+          <div className="hidden lg:flex items-center gap-4 text-right bg-white dark:bg-white/5 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-white/5 shadow-sm">
             <div>
                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">IP Address</p>
                <p className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200">
@@ -628,7 +651,7 @@ export default function App() {
 
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 bg-slate-100 dark:bg-white/5 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+            className="p-2 bg-white dark:bg-white/5 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200 dark:border-transparent"
           >
             {isDarkMode ? <Sun className="w-5 h-5 text-slate-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
           </button>
@@ -644,13 +667,13 @@ export default function App() {
             {/* LEFT COLUMN: Controls */}
             <div className="lg:col-span-4 space-y-6">
               
-              <div className="bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden group shadow-lg flex flex-col items-center">
+              <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden group shadow-xl flex flex-col items-center">
                 <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none"></div>
                 <div className="relative z-10 w-full flex flex-col items-center">
                   <button
                     onClick={handleConnect}
                     disabled={status === ConnectionState.CONNECTING}
-                    className={`w-40 h-40 md:w-56 md:h-56 rounded-full border-4 ${ringColor} ${glowColor} bg-white dark:bg-[#0a0a0a] flex flex-col items-center justify-center transition-all duration-700 hover:scale-105 active:scale-95 group-hover:border-opacity-100 border-opacity-50 shadow-2xl`}
+                    className={`w-40 h-40 md:w-56 md:h-56 rounded-full border-4 ${ringColor} ${glowColor} bg-slate-50 dark:bg-[#0a0a0a] flex flex-col items-center justify-center transition-all duration-700 hover:scale-105 active:scale-95 group-hover:border-opacity-100 border-opacity-50 shadow-2xl`}
                   >
                     <Power className={`w-12 h-12 md:w-20 md:h-20 mb-2 md:mb-4 transition-colors duration-500 ${status === ConnectionState.CONNECTED ? 'text-green-500' : 'text-slate-400 dark:text-slate-500'}`} />
                     <span className="text-[10px] md:text-xs font-bold tracking-[0.2em] text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">
@@ -672,7 +695,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-white/5 rounded-2xl p-6 space-y-6 shadow-lg">
+              <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 space-y-6 shadow-xl">
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -703,7 +726,7 @@ export default function App() {
             {/* RIGHT COLUMN: Viz & Stats */}
             <div className="lg:col-span-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-auto">
-                <div className="bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-white/5 rounded-2xl p-4 flex flex-col relative md:col-span-2 shadow-lg">
+                <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-4 flex flex-col relative md:col-span-2 shadow-xl">
                   <div className="flex justify-between items-center mb-4 px-2">
                     <div className="flex items-center gap-3">
                         <Globe className="w-4 h-4 text-cyan-500" /> 
@@ -732,7 +755,7 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-white/5 rounded-2xl p-6 shadow-lg">
+                <div className="md:col-span-2 bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 shadow-xl">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                       <Activity className="w-4 h-4 text-green-500" /> Real-time Bandwidth
@@ -756,7 +779,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-[#0f111a] border border-slate-200 dark:border-white/5 rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden shadow-lg">
+                <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden shadow-xl">
                   <div className="relative z-10">
                     <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><Gauge className="w-4 h-4 text-yellow-500"/> Speed Check</h3>
                     <div className="flex items-end gap-2 mb-1">
@@ -782,7 +805,7 @@ export default function App() {
         {/* SERVERS TAB */}
         {activeTab === 'servers' && (
           <div className="animate-fade-in-up space-y-6">
-            <div className="flex items-center gap-4 bg-white dark:bg-[#0f111a] p-4 rounded-xl border border-slate-200 dark:border-white/5 shadow-lg">
+            <div className="flex items-center gap-4 bg-white dark:bg-[#0f111a] p-4 rounded-xl border border-slate-300 dark:border-white/5 shadow-xl">
               <Search className="w-5 h-5 text-slate-400" />
               <input 
                 type="text" 
@@ -797,7 +820,7 @@ export default function App() {
                 <button
                   key={node.id}
                   onClick={() => setSelectedServer(node)}
-                  className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden group shadow-md hover:shadow-lg ${selectedServer.id === node.id ? 'bg-blue-500/5 border-blue-500' : 'bg-white dark:bg-[#0f111a] border-slate-200 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5'}`}
+                  className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden group shadow-md hover:shadow-xl ${selectedServer.id === node.id ? 'bg-blue-500/5 border-blue-500' : 'bg-white dark:bg-[#0f111a] border-slate-300 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5'}`}
                 >
                   <div className="flex justify-between items-start mb-2 relative z-10">
                     <div className="flex items-center gap-3">
@@ -825,7 +848,7 @@ export default function App() {
         {/* SECURITY TAB */}
         {activeTab === 'security' && (
           <div className="animate-fade-in-up grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
-             <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-white/5 shadow-xl">
+             <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
                   <div className="flex items-center gap-4 mb-8">
                       <div className="p-3 bg-green-500/10 rounded-xl">
                         <Shield className="w-8 h-8 text-green-500" />
@@ -847,7 +870,7 @@ export default function App() {
                             className={`w-full p-5 rounded-2xl border text-left flex items-start gap-4 transition-all duration-300 ${
                                 safetyMode === mode.id 
                                 ? 'bg-blue-500/5 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.1)]' 
-                                : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10'
+                                : 'bg-slate-50 dark:bg-white/5 border-slate-300 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10'
                             }`}
                           >
                               <div className={`p-2.5 rounded-xl transition-colors ${safetyMode === mode.id ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400'}`}>
@@ -864,11 +887,11 @@ export default function App() {
              </div>
 
              <div className="space-y-6">
-                 <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-white/5 shadow-xl">
+                 <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
                       <h3 className="font-bold text-slate-900 dark:text-white mb-6 text-lg">Advanced Filters</h3>
                       <div className="space-y-4">
                           {Object.keys(activeFilters).map((filter, i) => (
-                              <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-[#0a0a0a] border border-slate-200 dark:border-white/5">
+                              <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-[#0a0a0a] border border-slate-300 dark:border-white/5">
                                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{filter}</span>
                                   <button 
                                       onClick={() => toggleFilter(filter)}
@@ -880,9 +903,9 @@ export default function App() {
                           ))}
                       </div>
                  </div>
-                 <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-200 dark:border-white/5 shadow-xl">
+                 <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
                      <h3 className="font-bold text-slate-900 dark:text-white mb-4">DNS Configuration</h3>
-                     <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-[#0a0a0a] rounded-xl border border-slate-200 dark:border-white/5 mb-4">
+                     <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-[#0a0a0a] rounded-xl border border-slate-300 dark:border-white/5 mb-4">
                          <div>
                              <p className="font-bold text-sm text-slate-900 dark:text-white">Encrypted DNS (DoH)</p>
                              <p className="text-xs text-slate-500 mt-1">Prevents ISP snooping</p>
@@ -897,12 +920,12 @@ export default function App() {
         {/* SETTINGS TAB */}
         {activeTab === 'settings' && (
           <div className="animate-fade-in-up max-w-2xl mx-auto pb-8">
-             <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-8 md:p-10 border border-slate-200 dark:border-white/5 text-center shadow-xl">
+             <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-8 md:p-10 border border-slate-300 dark:border-white/5 text-center shadow-xl">
                  <Settings className="w-16 h-16 text-slate-300 dark:text-slate-700 mx-auto mb-6" />
                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Application Settings</h2>
                  <p className="text-slate-500 dark:text-slate-400 mb-10">Configure protocols, account details, and advanced routing options.</p>
                  <div className="grid gap-4 text-left">
-                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-200 dark:border-white/5 flex justify-between items-center">
+                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
                          <div>
                              <h4 className="font-bold text-slate-900 dark:text-white">Auto Reconnect</h4>
                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Restore connection on drop</p>
@@ -911,7 +934,7 @@ export default function App() {
                              <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${autoReconnect ? 'left-7' : 'left-1'}`}></div>
                          </button>
                      </div>
-                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-200 dark:border-white/5 flex justify-between items-center">
+                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
                          <div>
                              <h4 className="font-bold text-slate-900 dark:text-white">Kill Switch</h4>
                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Block internet access if VPN drops.</p>
@@ -920,7 +943,7 @@ export default function App() {
                              <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${killSwitch ? 'left-7' : 'left-1'}`}></div>
                          </button>
                      </div>
-                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-200 dark:border-white/5 flex justify-between items-center">
+                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
                          <div>
                              <h4 className="font-bold text-slate-900 dark:text-white">Data Usage</h4>
                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total lifetime usage: <span className="text-blue-500 font-mono">{totalUsage > 1024 ? `${(totalUsage/1024).toFixed(2)} GB` : `${totalUsage.toFixed(1)} MB`}</span></p>
@@ -935,35 +958,28 @@ export default function App() {
         )}
 
         {/* AI INSIGHT BAR (Persistent) */}
-        <div className="fixed bottom-[64px] md:bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-t border-slate-200 dark:border-white/10 p-2 md:p-3 z-40 transition-all duration-300">
+        <div className="fixed bottom-[64px] md:bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-t border-slate-300 dark:border-white/10 p-2 md:p-3 z-40 transition-all duration-300 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] dark:shadow-none">
            <div className="max-w-7xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
                  <div className="bg-purple-500/20 p-1.5 rounded-lg">
-                    <Cpu className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                    <Cpu className={`w-4 h-4 text-purple-600 dark:text-purple-400 ${isOptimizing ? 'animate-spin' : ''}`} />
                  </div>
                  <div className="hidden md:block">
                     <p className="text-[10px] text-purple-600 dark:text-purple-400 font-bold uppercase tracking-wider">Neural Engine</p>
                     <p className="text-xs text-slate-600 dark:text-slate-300 truncate max-w-lg">
-                      {aiInsight ? aiInsight.message : (geoData ? `Monitoring traffic on ${geoData.org} network...` : "Initializing Neural Networks...")}
+                      {isOptimizing ? "Analyzing network topology..." : (aiInsight ? aiInsight.message : (geoData ? `Monitoring traffic on ${geoData.org} network...` : "Initializing Neural Networks..."))}
                     </p>
                  </div>
                  <div className="md:hidden text-xs text-slate-600 dark:text-slate-300 truncate max-w-[200px]">
-                    {aiInsight ? aiInsight.message : "AI Active"}
+                    {isOptimizing ? "Optimizing..." : (aiInsight ? aiInsight.message : "AI Active")}
                  </div>
               </div>
               <button 
-                className="text-[10px] font-bold bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 px-3 py-1.5 rounded border border-slate-200 dark:border-white/10 text-slate-700 dark:text-white transition-colors"
-                onClick={() => {
-                  if(geoData) {
-                    getNetworkOptimization(serverNodes, { 
-                        location: `${geoData.city}, ${geoData.country}`, 
-                        isp: geoData.org, 
-                        ip: geoData.ip 
-                    }, "proactive").then(setAiInsight)
-                  }
-                }}
+                className="text-[10px] font-bold bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 px-3 py-1.5 rounded border border-slate-300 dark:border-white/10 text-slate-700 dark:text-white transition-colors flex items-center gap-2"
+                onClick={() => handleOptimize()}
+                disabled={isOptimizing}
               >
-                OPTIMIZE
+                {isOptimizing ? <Loader2 className="w-3 h-3 animate-spin" /> : 'OPTIMIZE'}
               </button>
            </div>
         </div>
@@ -971,7 +987,7 @@ export default function App() {
       </main>
 
       {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-white dark:bg-[#0f111a] border-t border-slate-200 dark:border-white/5 flex justify-around items-center z-50 pb-safe">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-white dark:bg-[#0f111a] border-t border-slate-300 dark:border-white/5 flex justify-around items-center z-50 pb-safe">
         {[
           { id: 'dashboard', icon: Home, label: 'Home' },
           { id: 'servers', icon: Globe, label: 'Servers' },
