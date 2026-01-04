@@ -3,7 +3,7 @@ import {
   Shield, Globe, Activity, Settings, Power, Zap, Lock, Wifi, AlertTriangle, 
   MapPin, RefreshCw, Search, Server, Gauge, Database, TrendingUp, Sun, Moon, 
   Check, Signal, Download, Upload, Cpu, EyeOff, Terminal, Layers, Share2, 
-  Minimize2, X, FileText, User, Menu, Home, Network, Loader2
+  Minimize2, X, FileText, User, Menu, Home, Network, Loader2, LogOut, ChevronRight
 } from 'lucide-react';
 import { 
   LineChart, Line, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis
@@ -304,6 +304,116 @@ const ProtocolSelector = ({ current, onChange }: { current: string, onChange: (p
   )
 };
 
+// --- Sidebar Navigation Component ---
+const Sidebar = ({ 
+  activeTab, 
+  setActiveTab, 
+  isMobileOpen, 
+  closeMobile, 
+  isDarkMode, 
+  toggleTheme, 
+  status 
+}: { 
+  activeTab: string, 
+  setActiveTab: (t: string) => void, 
+  isMobileOpen: boolean, 
+  closeMobile: () => void, 
+  isDarkMode: boolean, 
+  toggleTheme: () => void,
+  status: ConnectionState
+}) => {
+  const menuItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: Home },
+    { id: 'servers', label: 'Servers', icon: Globe },
+    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
+
+  const sidebarClasses = `
+    fixed inset-y-0 left-0 z-[60] w-64 transform transition-transform duration-300 ease-in-out
+    ${isMobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+    bg-white dark:bg-[#0f111a] border-r border-slate-200 dark:border-white/5 flex flex-col
+  `;
+
+  return (
+    <>
+      {/* Mobile Backdrop */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-[55] md:hidden backdrop-blur-sm"
+          onClick={closeMobile}
+        ></div>
+      )}
+
+      <aside className={sidebarClasses}>
+        {/* Logo Area */}
+        <div className="h-16 flex items-center px-6 border-b border-slate-200 dark:border-white/5">
+          <div className="flex items-center gap-3">
+            <div className="bg-gradient-to-tr from-blue-600 to-cyan-500 p-1.5 rounded-lg shadow-lg shadow-blue-500/20">
+              <Shield className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-lg tracking-tight text-slate-900 dark:text-white">CS VPN <span className="text-blue-500">AI</span></span>
+          </div>
+          <button onClick={closeMobile} className="ml-auto md:hidden text-slate-500">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Nav Items */}
+        <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-4 px-2">Main Menu</div>
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setActiveTab(item.id); closeMobile(); }}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
+                ${activeTab === item.id 
+                  ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' 
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white'
+                }`}
+            >
+              <item.icon className={`w-5 h-5 transition-colors ${activeTab === item.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`} />
+              <span>{item.label}</span>
+              {activeTab === item.id && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
+            </button>
+          ))}
+        </nav>
+
+        {/* Footer Area */}
+        <div className="p-4 border-t border-slate-200 dark:border-white/5 space-y-4">
+          
+          {/* Status Indicator */}
+          <div className={`p-3 rounded-xl border flex items-center gap-3 ${status === ConnectionState.CONNECTED ? 'bg-green-500/10 border-green-500/20' : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/5'}`}>
+             <div className={`w-2 h-2 rounded-full ${status === ConnectionState.CONNECTED ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
+             <div>
+                <div className="text-xs font-bold text-slate-900 dark:text-white">
+                  {status === ConnectionState.CONNECTED ? 'Protected' : 'Unprotected'}
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400">
+                  {status === ConnectionState.CONNECTED ? 'Tunnel Active' : 'System Idle'}
+                </div>
+             </div>
+          </div>
+
+          {/* Theme Toggle */}
+          <button 
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+               {isDarkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+               <span>{isDarkMode ? 'Dark Mode' : 'Light Mode'}</span>
+            </div>
+            <div className={`w-8 h-4 rounded-full relative transition-colors ${isDarkMode ? 'bg-slate-700' : 'bg-slate-300'}`}>
+                <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${isDarkMode ? 'left-4.5' : 'left-0.5'}`} style={{left: isDarkMode ? '18px' : '2px'}}></div>
+            </div>
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -311,6 +421,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [status, setStatus] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Real Data State
   const [geoData, setGeoData] = useState<RealGeoData | null>(null);
@@ -593,373 +704,367 @@ export default function App() {
                     'shadow-none';
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-[#050505] text-slate-800 dark:text-slate-200 font-sans selection:bg-blue-500/30 overflow-x-hidden transition-colors duration-300">
+    <div className="flex h-screen bg-slate-100 dark:bg-[#050505] text-slate-800 dark:text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden transition-colors duration-300">
       
-      {/* HEADER */}
-      <header className="fixed top-0 w-full z-50 bg-white/80 dark:bg-[#050505]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 md:px-6 py-4 flex justify-between items-center transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-tr from-blue-600 to-cyan-500 p-2 rounded-lg shadow-lg shadow-blue-500/20">
-            <Shield className="w-5 h-5 md:w-6 md:h-6 text-white" />
-          </div>
-          <div>
-            <h1 className="font-bold text-lg md:text-xl tracking-tight text-slate-900 dark:text-white">CS VPN <span className="text-blue-500">PRO</span></h1>
-            <div className="flex items-center gap-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${status === ConnectionState.CONNECTED ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></span>
-              <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 uppercase tracking-widest">{status === ConnectionState.CONNECTED ? 'SECURE TUNNEL' : 'SYSTEM IDLE'}</span>
-            </div>
-          </div>
-        </div>
+      {/* SIDEBAR NAVIGATION */}
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isMobileOpen={isSidebarOpen} 
+        closeMobile={() => setIsSidebarOpen(false)}
+        isDarkMode={isDarkMode}
+        toggleTheme={() => setIsDarkMode(!isDarkMode)}
+        status={status}
+      />
 
-        {/* Desktop Nav */}
-        <nav className="hidden md:flex bg-slate-200 dark:bg-[#12141c] p-1 rounded-xl border border-slate-300 dark:border-white/5">
-          {['dashboard', 'servers', 'security', 'settings'].map(tab => (
-            <button 
-              key={tab} 
-              onClick={() => setActiveTab(tab)}
-              className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab === tab ? 'bg-white dark:bg-white/10 text-blue-600 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </nav>
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col md:ml-64 relative h-full">
+        
+        {/* TOP HEADER BAR */}
+        <header className="h-16 flex items-center justify-between px-4 md:px-8 border-b border-slate-200 dark:border-white/5 bg-white/50 dark:bg-[#050505]/50 backdrop-blur-md z-40 sticky top-0">
+          <div className="flex items-center gap-4">
+             <button 
+                onClick={() => setIsSidebarOpen(true)}
+                className="md:hidden p-2 text-slate-500 hover:bg-slate-200 dark:hover:bg-white/10 rounded-lg transition-colors"
+             >
+                <Menu className="w-5 h-5" />
+             </button>
+             <h2 className="text-lg font-bold text-slate-800 dark:text-white capitalize hidden md:block">
+                {activeTab} Overview
+             </h2>
+          </div>
 
-        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 md:gap-6">
+              {/* Network Stats Widget */}
+              <div className="flex items-center gap-4 text-right">
+                <div className="hidden sm:block">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">IP Address</p>
+                  <p className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200">
+                      {status === ConnectionState.CONNECTED ? selectedServer.ip : (geoData?.ip || 'Scanning...')}
+                  </p>
+                </div>
+                <div className="w-px h-6 bg-slate-200 dark:bg-white/10 hidden sm:block"></div>
+                <div className="hidden sm:block">
+                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Location</p>
+                  <p className="font-mono text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1 justify-end">
+                      {status === ConnectionState.CONNECTED ? (
+                          <><span>{selectedServer.flag}</span> {selectedServer.city}</>
+                      ) : (
+                          geoData ? geoData.city : 'Locating...'
+                      )}
+                  </p>
+                </div>
+              </div>
+          </div>
+        </header>
+
+        {/* SCROLLABLE CONTENT */}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 pb-32">
           
-          {/* Enhanced Network Details Section */}
-          <div className="hidden lg:flex items-center gap-4 text-right bg-white dark:bg-white/5 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-white/5 shadow-sm">
-            <div>
-               <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">IP Address</p>
-               <p className="font-mono text-xs font-bold text-slate-700 dark:text-slate-200">
-                  {status === ConnectionState.CONNECTED ? selectedServer.ip : (geoData?.ip || 'Scanning...')}
-               </p>
-            </div>
-            <div className="w-px h-6 bg-slate-200 dark:bg-white/10"></div>
-            <div>
-               <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Provider</p>
-               <p className="font-mono text-xs text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
-                  {status === ConnectionState.CONNECTED ? 'Secure Tunnel' : (geoData?.org || 'Detecting...')}
-               </p>
-            </div>
-             <div className="w-px h-6 bg-slate-200 dark:bg-white/10"></div>
-            <div>
-               <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Location</p>
-               <p className="font-mono text-xs text-slate-600 dark:text-slate-300">
-                  {status === ConnectionState.CONNECTED ? `${selectedServer.city}, ${selectedServer.country}` : (geoData ? `${geoData.city}, ${geoData.country}` : 'Locating...')}
-               </p>
-            </div>
-          </div>
+          <div className="max-w-6xl mx-auto space-y-6">
 
-          <button 
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="p-2 bg-white dark:bg-white/5 rounded-full hover:bg-slate-100 dark:hover:bg-white/10 transition-colors border border-slate-200 dark:border-transparent"
-          >
-            {isDarkMode ? <Sun className="w-5 h-5 text-slate-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
-          </button>
-        </div>
-      </header>
+            {activeTab === 'dashboard' && (
+              <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 animate-fade-in-up">
+                
+                {/* LEFT COLUMN: Controls */}
+                <div className="xl:col-span-4 space-y-6">
+                  
+                  <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden group shadow-xl flex flex-col items-center">
+                    <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none"></div>
+                    <div className="relative z-10 w-full flex flex-col items-center">
+                      <button
+                        onClick={handleConnect}
+                        disabled={status === ConnectionState.CONNECTING}
+                        className={`w-40 h-40 md:w-56 md:h-56 rounded-full border-4 ${ringColor} ${glowColor} bg-slate-50 dark:bg-[#0a0a0a] flex flex-col items-center justify-center transition-all duration-700 hover:scale-105 active:scale-95 group-hover:border-opacity-100 border-opacity-50 shadow-2xl`}
+                      >
+                        <Power className={`w-12 h-12 md:w-20 md:h-20 mb-2 md:mb-4 transition-colors duration-500 ${status === ConnectionState.CONNECTED ? 'text-green-500' : 'text-slate-400 dark:text-slate-500'}`} />
+                        <span className="text-[10px] md:text-xs font-bold tracking-[0.2em] text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">
+                          {status === ConnectionState.CONNECTED ? 'DISCONNECT' : status === ConnectionState.CONNECTING ? 'INITIATING' : 'TAP TO CONNECT'}
+                        </span>
+                      </button>
 
-      {/* MAIN CONTENT */}
-      <main className="pt-24 pb-32 md:pb-24 px-4 md:px-8 max-w-7xl mx-auto space-y-6">
-
-        {activeTab === 'dashboard' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-fade-in-up">
-            
-            {/* LEFT COLUMN: Controls */}
-            <div className="lg:col-span-4 space-y-6">
-              
-              <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 md:p-8 relative overflow-hidden group shadow-xl flex flex-col items-center">
-                <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none"></div>
-                <div className="relative z-10 w-full flex flex-col items-center">
-                  <button
-                    onClick={handleConnect}
-                    disabled={status === ConnectionState.CONNECTING}
-                    className={`w-40 h-40 md:w-56 md:h-56 rounded-full border-4 ${ringColor} ${glowColor} bg-slate-50 dark:bg-[#0a0a0a] flex flex-col items-center justify-center transition-all duration-700 hover:scale-105 active:scale-95 group-hover:border-opacity-100 border-opacity-50 shadow-2xl`}
-                  >
-                    <Power className={`w-12 h-12 md:w-20 md:h-20 mb-2 md:mb-4 transition-colors duration-500 ${status === ConnectionState.CONNECTED ? 'text-green-500' : 'text-slate-400 dark:text-slate-500'}`} />
-                    <span className="text-[10px] md:text-xs font-bold tracking-[0.2em] text-slate-500 dark:text-slate-400 group-hover:text-blue-500 transition-colors">
-                      {status === ConnectionState.CONNECTED ? 'DISCONNECT' : status === ConnectionState.CONNECTING ? 'INITIATING' : 'TAP TO CONNECT'}
-                    </span>
-                  </button>
-
-                  <div className="mt-6 md:mt-8 w-full max-w-xs">
-                    <div className="flex justify-between items-center mb-2 px-1">
-                      <span className="text-[10px] text-slate-500 font-bold uppercase">Session Time</span>
-                      <span className="font-mono text-green-600 dark:text-green-400 text-sm">
-                        {new Date(sessionTime * 1000).toISOString().substr(11, 8)}
-                      </span>
+                      <div className="mt-6 md:mt-8 w-full max-w-xs">
+                        <div className="flex justify-between items-center mb-2 px-1">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase">Session Time</span>
+                          <span className="font-mono text-green-600 dark:text-green-400 text-sm">
+                            {new Date(sessionTime * 1000).toISOString().substr(11, 8)}
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-200 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
+                          <div className={`h-full bg-green-500 transition-all duration-1000 ${status === ConnectionState.CONNECTED ? 'w-full animate-pulse' : 'w-0'}`}></div>
+                        </div>
+                      </div>
                     </div>
-                    <div className="w-full bg-slate-200 dark:bg-white/5 rounded-full h-1.5 overflow-hidden">
-                      <div className={`h-full bg-green-500 transition-all duration-1000 ${status === ConnectionState.CONNECTED ? 'w-full animate-pulse' : 'w-0'}`}></div>
+                  </div>
+
+                  <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 space-y-6 shadow-xl">
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-blue-500" /> Multi-Hop Routing
+                        </h3>
+                        <button 
+                          onClick={() => setIsMultiHop(!isMultiHop)}
+                          className={`w-10 h-5 rounded-full relative transition-colors ${isMultiHop ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
+                        >
+                          <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMultiHop ? 'left-6' : 'left-1'}`}></div>
+                        </button>
+                      </div>
+                      {isMultiHop && (
+                        <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4 text-[10px] text-blue-600 dark:text-blue-300">
+                          Routing via <span className="font-bold">{entryNode.city}</span> → <span className="font-bold">{selectedServer.city}</span>.
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
+                        <Cpu className="w-4 h-4 text-purple-500" /> Protocol
+                      </h3>
+                      <ProtocolSelector current={protocol} onChange={setProtocol} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* RIGHT COLUMN: Viz & Stats */}
+                <div className="xl:col-span-8 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-auto">
+                    <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-4 flex flex-col relative md:col-span-2 shadow-xl">
+                      <div className="flex justify-between items-center mb-4 px-2">
+                        <div className="flex items-center gap-3">
+                            <Globe className="w-4 h-4 text-cyan-500" /> 
+                            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Global Network Matrix</h2>
+                            {geoData && (
+                                <span className="text-[10px] bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded border border-cyan-500/20 hidden sm:inline-block">
+                                    Origin: {geoData.city}, {geoData.country}
+                                </span>
+                            )}
+                        </div>
+                        <div className="flex gap-4 text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                          <span>LAT: {selectedServer.latency}ms</span>
+                        </div>
+                      </div>
+                      <LiveMap 
+                        selectedServer={selectedServer} 
+                        isConnected={status === ConnectionState.CONNECTED} 
+                        isMultiHop={isMultiHop}
+                        entryNode={entryNode}
+                        nodes={serverNodes}
+                      />
+                      <div className="absolute bottom-4 left-4 right-4 z-20">
+                        <ConsoleLog logs={consoleLogs} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-2 bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 shadow-xl">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-green-500" /> Real-time Bandwidth
+                        </h3>
+                        <span className="text-xs font-mono text-green-600 dark:text-green-400 animate-pulse">
+                          {trafficData.length > 0 ? trafficData[trafficData.length-1].value : 0} Mbps
+                        </span>
+                      </div>
+                      <div className="h-32 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={trafficData}>
+                            <defs>
+                              <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2}/>
+                                <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fill="url(#colorTraffic)" isAnimationActive={false} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden shadow-xl">
+                      <div className="relative z-10">
+                        <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><Gauge className="w-4 h-4 text-yellow-500"/> Speed Check</h3>
+                        <div className="flex items-end gap-2 mb-1">
+                          <span className="text-3xl font-mono font-bold text-slate-900 dark:text-white">
+                            {speedTest.download > 0 ? speedTest.download.toFixed(0) : '--'}
+                          </span>
+                          <span className="text-xs text-slate-500 mb-2">Mbps</span>
+                        </div>
+                        <button 
+                          onClick={runRealSpeedTest}
+                          disabled={speedTest.status === 'running'}
+                          className="w-full py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold transition-all"
+                        >
+                          {speedTest.status === 'running' ? 'TESTING...' : 'RUN TEST'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+            )}
 
-              <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 space-y-6 shadow-xl">
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Layers className="w-4 h-4 text-blue-500" /> Multi-Hop Routing
-                    </h3>
-                    <button 
-                      onClick={() => setIsMultiHop(!isMultiHop)}
-                      className={`w-10 h-5 rounded-full relative transition-colors ${isMultiHop ? 'bg-blue-600' : 'bg-slate-300 dark:bg-slate-700'}`}
-                    >
-                      <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all ${isMultiHop ? 'left-6' : 'left-1'}`}></div>
-                    </button>
-                  </div>
-                  {isMultiHop && (
-                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4 text-[10px] text-blue-600 dark:text-blue-300">
-                      Routing via <span className="font-bold">{entryNode.city}</span> → <span className="font-bold">{selectedServer.city}</span>.
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                    <Cpu className="w-4 h-4 text-purple-500" /> Protocol
-                  </h3>
-                  <ProtocolSelector current={protocol} onChange={setProtocol} />
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN: Viz & Stats */}
-            <div className="lg:col-span-8 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-auto">
-                <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-4 flex flex-col relative md:col-span-2 shadow-xl">
-                  <div className="flex justify-between items-center mb-4 px-2">
-                    <div className="flex items-center gap-3">
-                        <Globe className="w-4 h-4 text-cyan-500" /> 
-                        <h2 className="text-sm font-bold text-slate-900 dark:text-white">Global Network Matrix</h2>
-                        {geoData && (
-                            <span className="text-[10px] bg-cyan-500/10 text-cyan-600 px-2 py-0.5 rounded border border-cyan-500/20 hidden sm:inline-block">
-                                Origin: {geoData.city}, {geoData.country}
-                            </span>
-                        )}
-                    </div>
-                    <div className="flex gap-4 text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                      <span>LAT: {selectedServer.latency}ms</span>
-                    </div>
-                  </div>
-                  <LiveMap 
-                    selectedServer={selectedServer} 
-                    isConnected={status === ConnectionState.CONNECTED} 
-                    isMultiHop={isMultiHop}
-                    entryNode={entryNode}
-                    nodes={serverNodes}
+            {/* SERVERS TAB */}
+            {activeTab === 'servers' && (
+              <div className="animate-fade-in-up space-y-6">
+                <div className="flex items-center gap-4 bg-white dark:bg-[#0f111a] p-4 rounded-xl border border-slate-300 dark:border-white/5 shadow-xl">
+                  <Search className="w-5 h-5 text-slate-400" />
+                  <input 
+                    type="text" 
+                    placeholder="Search global nodes by city or country..."
+                    className="bg-transparent border-none outline-none text-slate-900 dark:text-white w-full placeholder-slate-400"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <div className="absolute bottom-4 left-4 right-4 z-20">
-                     <ConsoleLog logs={consoleLogs} />
-                  </div>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 shadow-xl">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Activity className="w-4 h-4 text-green-500" /> Real-time Bandwidth
-                    </h3>
-                    <span className="text-xs font-mono text-green-600 dark:text-green-400 animate-pulse">
-                      {trafficData.length > 0 ? trafficData[trafficData.length-1].value : 0} Mbps
-                    </span>
-                  </div>
-                  <div className="h-32 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={trafficData}>
-                        <defs>
-                          <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                          </linearGradient>
-                        </defs>
-                        <Area type="monotone" dataKey="value" stroke="#22c55e" strokeWidth={2} fill="url(#colorTraffic)" isAnimationActive={false} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-[#0f111a] border border-slate-300 dark:border-white/5 rounded-2xl p-6 flex flex-col justify-between relative overflow-hidden shadow-xl">
-                  <div className="relative z-10">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2"><Gauge className="w-4 h-4 text-yellow-500"/> Speed Check</h3>
-                    <div className="flex items-end gap-2 mb-1">
-                      <span className="text-3xl font-mono font-bold text-slate-900 dark:text-white">
-                        {speedTest.download > 0 ? speedTest.download.toFixed(0) : '--'}
-                      </span>
-                      <span className="text-xs text-slate-500 mb-2">Mbps</span>
-                    </div>
-                    <button 
-                      onClick={runRealSpeedTest}
-                      disabled={speedTest.status === 'running'}
-                      className="w-full py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-lg text-xs font-bold transition-all"
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {serverNodes.filter(n => n.city.toLowerCase().includes(searchTerm.toLowerCase())).map(node => (
+                    <button
+                      key={node.id}
+                      onClick={() => setSelectedServer(node)}
+                      className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden group shadow-md hover:shadow-xl ${selectedServer.id === node.id ? 'bg-blue-500/5 border-blue-500' : 'bg-white dark:bg-[#0f111a] border-slate-300 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5'}`}
                     >
-                      {speedTest.status === 'running' ? 'TESTING...' : 'RUN TEST'}
+                      <div className="flex justify-between items-start mb-2 relative z-10">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{node.flag}</span>
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white text-sm">{node.city}</div>
+                            <div className="text-[10px] text-slate-500 font-mono">{node.ip}</div>
+                          </div>
+                        </div>
+                        <div className={`w-2 h-2 rounded-full ${node.load < 50 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
+                      </div>
+                      <div className="w-full bg-slate-200 dark:bg-white/5 h-1 rounded-full overflow-hidden mt-4 relative z-10">
+                        <div className="bg-slate-500 h-full" style={{ width: `${node.load}%` }}></div>
+                      </div>
+                      <div className="flex justify-between mt-1 text-[9px] text-slate-500 font-mono relative z-10">
+                        <span>LOAD: {node.load}%</span>
+                        <span>PING: {node.latency}ms</span>
+                      </div>
                     </button>
-                  </div>
+                  ))}
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* SERVERS TAB */}
-        {activeTab === 'servers' && (
-          <div className="animate-fade-in-up space-y-6">
-            <div className="flex items-center gap-4 bg-white dark:bg-[#0f111a] p-4 rounded-xl border border-slate-300 dark:border-white/5 shadow-xl">
-              <Search className="w-5 h-5 text-slate-400" />
-              <input 
-                type="text" 
-                placeholder="Search global nodes by city or country..."
-                className="bg-transparent border-none outline-none text-slate-900 dark:text-white w-full placeholder-slate-400"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {serverNodes.filter(n => n.city.toLowerCase().includes(searchTerm.toLowerCase())).map(node => (
-                <button
-                  key={node.id}
-                  onClick={() => setSelectedServer(node)}
-                  className={`p-4 rounded-xl border text-left transition-all relative overflow-hidden group shadow-md hover:shadow-xl ${selectedServer.id === node.id ? 'bg-blue-500/5 border-blue-500' : 'bg-white dark:bg-[#0f111a] border-slate-300 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5'}`}
-                >
-                  <div className="flex justify-between items-start mb-2 relative z-10">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{node.flag}</span>
-                      <div>
-                        <div className="font-bold text-slate-900 dark:text-white text-sm">{node.city}</div>
-                        <div className="text-[10px] text-slate-500 font-mono">{node.ip}</div>
+            {/* SECURITY TAB */}
+            {activeTab === 'security' && (
+              <div className="animate-fade-in-up grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
+                <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
+                      <div className="flex items-center gap-4 mb-8">
+                          <div className="p-3 bg-green-500/10 rounded-xl">
+                            <Shield className="w-8 h-8 text-green-500" />
+                          </div>
+                          <div>
+                              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Content Filtering</h2>
+                              <p className="text-sm text-slate-500 dark:text-slate-400">AI-powered network protection profiles</p>
+                          </div>
                       </div>
-                    </div>
-                    <div className={`w-2 h-2 rounded-full ${node.load < 50 ? 'bg-green-500' : 'bg-yellow-500'}`}></div>
-                  </div>
-                  <div className="w-full bg-slate-200 dark:bg-white/5 h-1 rounded-full overflow-hidden mt-4 relative z-10">
-                    <div className="bg-slate-500 h-full" style={{ width: `${node.load}%` }}></div>
-                  </div>
-                  <div className="flex justify-between mt-1 text-[9px] text-slate-500 font-mono relative z-10">
-                    <span>LOAD: {node.load}%</span>
-                    <span>PING: {node.latency}ms</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* SECURITY TAB */}
-        {activeTab === 'security' && (
-          <div className="animate-fade-in-up grid grid-cols-1 lg:grid-cols-2 gap-6 pb-8">
-             <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
-                  <div className="flex items-center gap-4 mb-8">
-                      <div className="p-3 bg-green-500/10 rounded-xl">
-                        <Shield className="w-8 h-8 text-green-500" />
-                      </div>
-                      <div>
-                          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Content Filtering</h2>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">AI-powered network protection profiles</p>
-                      </div>
-                  </div>
-                  <div className="space-y-4">
-                      {[
-                          { id: 'standard', name: 'Standard Protection', desc: 'Blocks malware, phishing, and known threats.', icon: Shield },
-                          { id: 'family', name: 'Family Safe', desc: 'Blocks adult content, gambling, and violent sites.', icon: Lock },
-                          { id: 'strict', name: 'Strict Mode', desc: 'Blocks all distractions, social media, and games.', icon: AlertTriangle }
-                      ].map((mode) => (
-                          <button
-                            key={mode.id}
-                            onClick={() => setSafetyMode(mode.id as any)}
-                            className={`w-full p-5 rounded-2xl border text-left flex items-start gap-4 transition-all duration-300 ${
-                                safetyMode === mode.id 
-                                ? 'bg-blue-500/5 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.1)]' 
-                                : 'bg-slate-50 dark:bg-white/5 border-slate-300 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10'
-                            }`}
-                          >
-                              <div className={`p-2.5 rounded-xl transition-colors ${safetyMode === mode.id ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400'}`}>
-                                  <mode.icon className="w-5 h-5" />
-                              </div>
-                              <div className="flex-grow">
-                                  <h3 className={`font-bold ${safetyMode === mode.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>{mode.name}</h3>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{mode.desc}</p>
-                              </div>
-                              {safetyMode === mode.id && <Check className="w-6 h-6 text-blue-500 ml-auto" />}
-                          </button>
-                      ))}
-                  </div>
-             </div>
-
-             <div className="space-y-6">
-                 <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
-                      <h3 className="font-bold text-slate-900 dark:text-white mb-6 text-lg">Advanced Filters</h3>
                       <div className="space-y-4">
-                          {Object.keys(activeFilters).map((filter, i) => (
-                              <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-[#0a0a0a] border border-slate-300 dark:border-white/5">
-                                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{filter}</span>
-                                  <button 
-                                      onClick={() => toggleFilter(filter)}
-                                      className={`w-12 h-7 rounded-full relative cursor-pointer transition-all duration-300 ${activeFilters[filter] ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-700'}`}
-                                  >
-                                      <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-md ${activeFilters[filter] ? 'left-6' : 'left-1'}`}></div>
-                                  </button>
-                              </div>
+                          {[
+                              { id: 'standard', name: 'Standard Protection', desc: 'Blocks malware, phishing, and known threats.', icon: Shield },
+                              { id: 'family', name: 'Family Safe', desc: 'Blocks adult content, gambling, and violent sites.', icon: Lock },
+                              { id: 'strict', name: 'Strict Mode', desc: 'Blocks all distractions, social media, and games.', icon: AlertTriangle }
+                      ].map((mode) => (
+                              <button
+                                key={mode.id}
+                                onClick={() => setSafetyMode(mode.id as any)}
+                                className={`w-full p-5 rounded-2xl border text-left flex items-start gap-4 transition-all duration-300 ${
+                                    safetyMode === mode.id 
+                                    ? 'bg-blue-500/5 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.1)]' 
+                                    : 'bg-slate-50 dark:bg-white/5 border-slate-300 dark:border-white/5 hover:bg-slate-100 dark:hover:bg-white/10'
+                                }`}
+                              >
+                                  <div className={`p-2.5 rounded-xl transition-colors ${safetyMode === mode.id ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400'}`}>
+                                      <mode.icon className="w-5 h-5" />
+                                  </div>
+                                  <div className="flex-grow">
+                                      <h3 className={`font-bold ${safetyMode === mode.id ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>{mode.name}</h3>
+                                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">{mode.desc}</p>
+                                  </div>
+                                  {safetyMode === mode.id && <Check className="w-6 h-6 text-blue-500 ml-auto" />}
+                              </button>
                           ))}
                       </div>
-                 </div>
-                 <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
-                     <h3 className="font-bold text-slate-900 dark:text-white mb-4">DNS Configuration</h3>
-                     <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-[#0a0a0a] rounded-xl border border-slate-300 dark:border-white/5 mb-4">
-                         <div>
-                             <p className="font-bold text-sm text-slate-900 dark:text-white">Encrypted DNS (DoH)</p>
-                             <p className="text-xs text-slate-500 mt-1">Prevents ISP snooping</p>
-                         </div>
-                         <span className="px-2 py-1 rounded text-[10px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">ACTIVE</span>
-                     </div>
-                 </div>
-             </div>
-          </div>
-        )}
+                </div>
 
-        {/* SETTINGS TAB */}
-        {activeTab === 'settings' && (
-          <div className="animate-fade-in-up max-w-2xl mx-auto pb-8">
-             <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-8 md:p-10 border border-slate-300 dark:border-white/5 text-center shadow-xl">
-                 <Settings className="w-16 h-16 text-slate-300 dark:text-slate-700 mx-auto mb-6" />
-                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Application Settings</h2>
-                 <p className="text-slate-500 dark:text-slate-400 mb-10">Configure protocols, account details, and advanced routing options.</p>
-                 <div className="grid gap-4 text-left">
-                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
-                         <div>
-                             <h4 className="font-bold text-slate-900 dark:text-white">Auto Reconnect</h4>
-                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Restore connection on drop</p>
-                         </div>
-                         <button onClick={() => setAutoReconnect(!autoReconnect)} className={`w-14 h-8 rounded-full relative cursor-pointer transition-all duration-300 ${autoReconnect ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
-                             <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${autoReconnect ? 'left-7' : 'left-1'}`}></div>
-                         </button>
-                     </div>
-                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
-                         <div>
-                             <h4 className="font-bold text-slate-900 dark:text-white">Kill Switch</h4>
-                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Block internet access if VPN drops.</p>
-                         </div>
-                         <button onClick={() => setKillSwitch(!killSwitch)} className={`w-14 h-8 rounded-full relative cursor-pointer transition-all duration-300 ${killSwitch ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
-                             <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${killSwitch ? 'left-7' : 'left-1'}`}></div>
-                         </button>
-                     </div>
-                     <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
-                         <div>
-                             <h4 className="font-bold text-slate-900 dark:text-white">Data Usage</h4>
-                             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total lifetime usage: <span className="text-blue-500 font-mono">{totalUsage > 1024 ? `${(totalUsage/1024).toFixed(2)} GB` : `${totalUsage.toFixed(1)} MB`}</span></p>
-                         </div>
-                         <div className="h-2 w-24 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                            <div className="h-full bg-purple-500 w-3/4"></div>
-                         </div>
-                     </div>
-                 </div>
-             </div>
-          </div>
-        )}
+                <div className="space-y-6">
+                    <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
+                          <h3 className="font-bold text-slate-900 dark:text-white mb-6 text-lg">Advanced Filters</h3>
+                          <div className="space-y-4">
+                              {Object.keys(activeFilters).map((filter, i) => (
+                                  <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-[#0a0a0a] border border-slate-300 dark:border-white/5">
+                                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{filter}</span>
+                                      <button 
+                                          onClick={() => toggleFilter(filter)}
+                                          className={`w-12 h-7 rounded-full relative cursor-pointer transition-all duration-300 ${activeFilters[filter] ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                      >
+                                          <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all duration-300 shadow-md ${activeFilters[filter] ? 'left-6' : 'left-1'}`}></div>
+                                      </button>
+                                  </div>
+                              ))}
+                          </div>
+                    </div>
+                    <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
+                        <h3 className="font-bold text-slate-900 dark:text-white mb-4">DNS Configuration</h3>
+                        <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-[#0a0a0a] rounded-xl border border-slate-300 dark:border-white/5 mb-4">
+                            <div>
+                                <p className="font-bold text-sm text-slate-900 dark:text-white">Encrypted DNS (DoH)</p>
+                                <p className="text-xs text-slate-500 mt-1">Prevents ISP snooping</p>
+                            </div>
+                            <span className="px-2 py-1 rounded text-[10px] font-bold bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20">ACTIVE</span>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            )}
 
-        {/* AI INSIGHT BAR (Persistent) */}
-        <div className="fixed bottom-[64px] md:bottom-0 left-0 right-0 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-t border-slate-300 dark:border-white/10 p-2 md:p-3 z-40 transition-all duration-300 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] dark:shadow-none">
-           <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* SETTINGS TAB */}
+            {activeTab === 'settings' && (
+              <div className="animate-fade-in-up max-w-2xl mx-auto pb-8">
+                <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-8 md:p-10 border border-slate-300 dark:border-white/5 text-center shadow-xl">
+                    <Settings className="w-16 h-16 text-slate-300 dark:text-slate-700 mx-auto mb-6" />
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Application Settings</h2>
+                    <p className="text-slate-500 dark:text-slate-400 mb-10">Configure protocols, account details, and advanced routing options.</p>
+                    <div className="grid gap-4 text-left">
+                        <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
+                            <div>
+                                <h4 className="font-bold text-slate-900 dark:text-white">Auto Reconnect</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Restore connection on drop</p>
+                            </div>
+                            <button onClick={() => setAutoReconnect(!autoReconnect)} className={`w-14 h-8 rounded-full relative cursor-pointer transition-all duration-300 ${autoReconnect ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${autoReconnect ? 'left-7' : 'left-1'}`}></div>
+                            </button>
+                        </div>
+                        <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
+                            <div>
+                                <h4 className="font-bold text-slate-900 dark:text-white">Kill Switch</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Block internet access if VPN drops.</p>
+                            </div>
+                            <button onClick={() => setKillSwitch(!killSwitch)} className={`w-14 h-8 rounded-full relative cursor-pointer transition-all duration-300 ${killSwitch ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
+                                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${killSwitch ? 'left-7' : 'left-1'}`}></div>
+                            </button>
+                        </div>
+                        <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
+                            <div>
+                                <h4 className="font-bold text-slate-900 dark:text-white">Data Usage</h4>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total lifetime usage: <span className="text-blue-500 font-mono">{totalUsage > 1024 ? `${(totalUsage/1024).toFixed(2)} GB` : `${totalUsage.toFixed(1)} MB`}</span></p>
+                            </div>
+                            <div className="h-2 w-24 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                                <div className="h-full bg-purple-500 w-3/4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </main>
+        
+        {/* AI INSIGHT BAR (Persistent at bottom of Content Area) */}
+        <div className="bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-md border-t border-slate-300 dark:border-white/10 p-2 md:p-3 shadow-[0_-5px_20px_rgba(0,0,0,0.05)] dark:shadow-none sticky bottom-0 z-30">
+           <div className="max-w-6xl mx-auto flex items-center justify-between">
               <div className="flex items-center gap-3">
                  <div className="bg-purple-500/20 p-1.5 rounded-lg">
                     <Cpu className={`w-4 h-4 text-purple-600 dark:text-purple-400 ${isOptimizing ? 'animate-spin' : ''}`} />
@@ -983,31 +1088,7 @@ export default function App() {
               </button>
            </div>
         </div>
-
-      </main>
-
-      {/* MOBILE BOTTOM NAVIGATION */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-[64px] bg-white dark:bg-[#0f111a] border-t border-slate-300 dark:border-white/5 flex justify-around items-center z-50 pb-safe">
-        {[
-          { id: 'dashboard', icon: Home, label: 'Home' },
-          { id: 'servers', icon: Globe, label: 'Servers' },
-          { id: 'security', icon: Shield, label: 'Security' },
-          { id: 'settings', icon: Settings, label: 'Settings' }
-        ].map((item) => (
-           <button
-             key={item.id}
-             onClick={() => setActiveTab(item.id)}
-             className={`flex flex-col items-center gap-1 p-2 w-full transition-colors ${
-               activeTab === item.id 
-               ? 'text-blue-600 dark:text-blue-400' 
-               : 'text-slate-400 dark:text-slate-600'
-             }`}
-           >
-              <item.icon className={`w-5 h-5 ${activeTab === item.id ? 'fill-current opacity-20' : ''}`} />
-              <span className="text-[10px] font-bold">{item.label}</span>
-           </button>
-        ))}
-      </nav>
+      </div>
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
@@ -1019,9 +1100,13 @@ export default function App() {
         .animate-dash {
           animation: dash 5s linear infinite;
         }
+        .animate-fade-in-up { animation: fadeInUp 0.4s ease-out; }
+        @keyframes fadeInUp { 
+          from { opacity: 0; transform: translateY(10px); } 
+          to { opacity: 1; transform: translateY(0); } 
+        }
         .animate-fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
       `}</style>
     </div>
   );
