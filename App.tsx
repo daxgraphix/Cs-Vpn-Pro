@@ -5,7 +5,7 @@ import {
   Check, Signal, Download, Upload, Cpu, EyeOff, Terminal, Layers, Share2, 
   Minimize2, X, FileText, User, Menu, Home, Network, Loader2, LogOut, ChevronRight,
   Play, Pause, Clock, History, Trash2, MoreHorizontal, ArrowRight, CornerDownRight,
-  Brain, Sparkles
+  Brain, Sparkles, Plus, Minus, Move
 } from 'lucide-react';
 import { 
   LineChart, Line, Tooltip, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid
@@ -43,6 +43,7 @@ interface RealGeoData {
 }
 
 // Map coordinates for visualization (SVG percentage 0-100)
+// Adjusted User coordinates to ~Tanzania (East Africa)
 const VISUAL_MAP_COORDS: Record<string, GeoCords> = {
   'New York': { x: 28, y: 35 },
   'Los Angeles': { x: 18, y: 38 },
@@ -52,7 +53,7 @@ const VISUAL_MAP_COORDS: Record<string, GeoCords> = {
   'Tokyo': { x: 88, y: 38 },
   'Johannesburg': { x: 55, y: 75 },
   'São Paulo': { x: 35, y: 70 },
-  'User': { x: 25, y: 38 } // Default fallback
+  'User': { x: 58, y: 64 } // Tanzania Approximation
 };
 
 // Real lat/lon for distance calc
@@ -191,18 +192,24 @@ const LiveMap = ({
   isConnected, 
   isMultiHop, 
   entryNode,
-  nodes
+  nodes,
+  userGeo
 }: { 
   selectedServer: ServerNode, 
   isConnected: boolean, 
   isMultiHop: boolean, 
   entryNode: ServerNode,
-  nodes: ServerNode[]
+  nodes: ServerNode[],
+  userGeo: RealGeoData | null
 }) => {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const userPos = VISUAL_MAP_COORDS['User'];
   const targetPos = VISUAL_MAP_COORDS[selectedServer.city] || { x: 50, y: 50 };
-  
-  // Logic Fix: If MultiHop, first leg goes to EntryNode. If SingleHop, first leg goes directly to Target.
   const firstLegEnd = isMultiHop ? (VISUAL_MAP_COORDS[entryNode.city] || { x: 50, y: 50 }) : targetPos;
 
   const calculatePath = (start: GeoCords, end: GeoCords) => {
@@ -211,70 +218,130 @@ const LiveMap = ({
     return `M ${start.x} ${start.y} Q ${midX} ${midY} ${end.x} ${end.y}`;
   };
 
-  return (
-    <div className="relative w-full aspect-[2/1] bg-slate-200 dark:bg-[#0f111a] rounded-xl overflow-hidden border border-slate-300 dark:border-white/5 shadow-inner dark:shadow-black/20 group transition-colors">
-      <div className="absolute inset-0 opacity-10 dark:opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-cover bg-center bg-no-repeat filter sepia hue-rotate-180 dark:invert mix-blend-screen pointer-events-none"></div>
-      
-      <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
-            <stop offset="50%" stopColor="#3b82f6" stopOpacity="1" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {(isConnected) && (
-          <>
-            {/* First Leg: User -> (Entry or Target) */}
-            <path 
-              d={calculatePath(userPos, firstLegEnd)} 
-              fill="none" 
-              stroke="url(#grad1)" 
-              strokeWidth="0.5" 
-              className="animate-dash"
-              strokeDasharray="5"
-            />
-            
-            {/* Second Leg: Entry -> Target (Only if MultiHop) */}
-            {isMultiHop && (
-              <path 
-                d={calculatePath(firstLegEnd, targetPos)} 
-                fill="none" 
-                stroke="#22c55e" 
-                strokeWidth="0.5" 
-                className="animate-dash"
-                strokeDasharray="5"
-                style={{ animationDelay: '1s' }}
-              />
-            )}
-          </>
-        )}
-      </svg>
-      <div className="absolute w-3 h-3 bg-blue-600 dark:bg-white rounded-full shadow-[0_0_15px_currentColor] z-20" style={{ left: `${userPos.x}%`, top: `${userPos.y}%`, transform: 'translate(-50%, -50%)' }}>
-        <div className="absolute -inset-2 bg-blue-500/20 dark:bg-white/20 rounded-full animate-ping"></div>
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[8px] dark:text-white text-slate-900 font-mono whitespace-nowrap bg-white/80 dark:bg-black/50 px-1 rounded backdrop-blur">YOU</div>
-      </div>
-      {nodes.map(node => {
-        const pos = VISUAL_MAP_COORDS[node.city] || { x: 50, y: 50 };
-        const isTarget = node.id === selectedServer.id;
-        const isEntry = isMultiHop && node.id === entryNode.id;
-        const isActive = isConnected && (isTarget || isEntry);
+  const handleWheel = (e: React.WheelEvent) => {
+    // e.preventDefault(); // React synthetic events can't be prevented this way usually for passive listeners
+    const scaleAmount = -e.deltaY * 0.001;
+    const newZoom = Math.min(Math.max(1, zoom + scaleAmount), 4);
+    setZoom(newZoom);
+  };
 
-        return (
-          <div 
-            key={node.id} 
-            className={`absolute transition-all duration-500 z-20 ${isActive ? 'z-30' : 'opacity-40 grayscale'}`}
-            style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%, -50%)' }}
-          >
-            <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isActive ? (isTarget ? 'bg-green-500 shadow-[0_0_20px_#22c55e] scale-150' : 'bg-blue-500 shadow-[0_0_15px_#3b82f6] scale-125') : 'bg-slate-400 dark:bg-slate-500'}`}></div>
-            {isActive && (
-              <div className="absolute top-3 left-1/2 -translate-x-1/2 text-[8px] font-bold text-white font-mono whitespace-nowrap bg-black/70 px-2 py-0.5 rounded border border-white/10 backdrop-blur">
-                {isEntry && "ENTRY -> "}{node.city}
-              </div>
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    // Simple bounds checking could go here
+    setPan({ x: newX, y: newY });
+  };
+
+  const handleMouseUp = () => setIsDragging(false);
+  const handleMouseLeave = () => setIsDragging(false);
+
+  return (
+    <div 
+        ref={containerRef}
+        className="relative w-full aspect-[2/1] bg-slate-200 dark:bg-[#0f111a] rounded-xl overflow-hidden border border-slate-300 dark:border-white/5 shadow-inner dark:shadow-black/20 group transition-colors cursor-move"
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+    >
+      {/* Zoom Controls */}
+      <div className="absolute top-4 right-4 z-40 flex flex-col gap-2">
+        <button onClick={() => setZoom(z => Math.min(z + 0.5, 4))} className="p-1.5 bg-white dark:bg-black/50 backdrop-blur rounded-lg border border-slate-300 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+            <Plus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+        </button>
+        <button onClick={() => setZoom(z => Math.max(z - 0.5, 1))} className="p-1.5 bg-white dark:bg-black/50 backdrop-blur rounded-lg border border-slate-300 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">
+            <Minus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+        </button>
+      </div>
+
+      {/* Transform Container */}
+      <div 
+        style={{ 
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, 
+            transformOrigin: 'center',
+            transition: isDragging ? 'none' : 'transform 0.2s ease-out',
+            width: '100%',
+            height: '100%'
+        }}
+      >
+          <div className="absolute inset-0 opacity-10 dark:opacity-20 bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/80/World_map_-_low_resolution.svg')] bg-cover bg-center bg-no-repeat filter sepia hue-rotate-180 dark:invert mix-blend-screen pointer-events-none"></div>
+          
+          <svg className="absolute inset-0 w-full h-full pointer-events-none z-10" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#3b82f6" stopOpacity="0" />
+                <stop offset="50%" stopColor="#3b82f6" stopOpacity="1" />
+                <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            {(isConnected) && (
+              <>
+                <path 
+                  d={calculatePath(userPos, firstLegEnd)} 
+                  fill="none" 
+                  stroke="url(#grad1)" 
+                  strokeWidth={0.5 / zoom} 
+                  className="animate-dash"
+                  strokeDasharray="5"
+                />
+                
+                {isMultiHop && (
+                  <path 
+                    d={calculatePath(firstLegEnd, targetPos)} 
+                    fill="none" 
+                    stroke="#22c55e" 
+                    strokeWidth={0.5 / zoom} 
+                    className="animate-dash"
+                    strokeDasharray="5"
+                    style={{ animationDelay: '1s' }}
+                  />
+                )}
+              </>
             )}
+          </svg>
+
+          {/* User Node */}
+          <div className="absolute w-3 h-3 z-20" style={{ left: `${userPos.x}%`, top: `${userPos.y}%`, transform: `translate(-50%, -50%) scale(${1/zoom})` }}>
+            <div className="w-3 h-3 bg-blue-600 dark:bg-white rounded-full shadow-[0_0_15px_currentColor] relative">
+                <div className="absolute -inset-2 bg-blue-500/20 dark:bg-white/20 rounded-full animate-ping"></div>
+            </div>
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 text-[6px] dark:text-white text-slate-900 font-mono whitespace-nowrap bg-white/80 dark:bg-black/50 px-1 rounded backdrop-blur border border-slate-300 dark:border-white/10 pointer-events-none">
+                <div className="font-bold">YOU</div>
+                <div className="text-[5px] opacity-75">{userGeo?.country || 'Tanzania'}</div>
+            </div>
           </div>
-        )
-      })}
+
+          {/* Server Nodes */}
+          {nodes.map(node => {
+            const pos = VISUAL_MAP_COORDS[node.city] || { x: 50, y: 50 };
+            const isTarget = node.id === selectedServer.id;
+            const isEntry = isMultiHop && node.id === entryNode.id;
+            const isActive = isConnected && (isTarget || isEntry);
+
+            return (
+              <div 
+                key={node.id} 
+                className={`absolute transition-all duration-500 z-20 ${isActive ? 'z-30' : 'opacity-60'}`}
+                style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: `translate(-50%, -50%) scale(${1/zoom})` }}
+              >
+                <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isActive ? (isTarget ? 'bg-green-500 shadow-[0_0_20px_#22c55e] scale-150' : 'bg-blue-500 shadow-[0_0_15px_#3b82f6] scale-125') : 'bg-slate-400 dark:bg-slate-500'}`}></div>
+                <div className={`absolute top-3 left-1/2 -translate-x-1/2 text-[6px] font-mono whitespace-nowrap px-1.5 py-0.5 rounded backdrop-blur border transition-all ${isActive ? 'bg-black/70 text-white border-white/20 font-bold z-40' : 'bg-white/50 dark:bg-black/30 text-slate-800 dark:text-slate-300 border-transparent'}`}>
+                    <div>{isEntry && "ENTRY -> "}{node.city}</div>
+                    <div className="text-[5px] opacity-75 uppercase">{node.country}</div>
+                </div>
+              </div>
+            )
+          })}
+      </div>
     </div>
   );
 };
@@ -475,8 +542,17 @@ export default function App() {
   const [status, setStatus] = useState<ConnectionState>(ConnectionState.DISCONNECTED);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Real Data State
-  const [geoData, setGeoData] = useState<RealGeoData | null>(null);
+  // Real Data State - Default to Tanzania
+  const [geoData, setGeoData] = useState<RealGeoData | null>({
+    ip: '197.250.0.0', // Random IP range for TZ
+    city: 'Dar es Salaam',
+    region: 'Dar es Salaam',
+    country: 'Tanzania',
+    latitude: -6.7924,
+    longitude: 39.2083,
+    org: 'Vodacom Tanzania'
+  });
+  
   const [serverNodes, setServerNodes] = useState<ServerNode[]>(INITIAL_NODES);
   const [selectedServer, setSelectedServer] = useState<ServerNode>(INITIAL_NODES[0]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -541,42 +617,38 @@ export default function App() {
   };
 
   useEffect(() => {
-    // 1. Fetch Real IP & Location
+    // 1. Fetch Real IP & Location (Optional - we prioritize TZ default for this demo)
     const initRealData = async () => {
       try {
         addConsoleLog("Initializing Network Discovery...", "info");
+        // NOTE: We are intentionally NOT overwriting the Tanzania default with the real IP for this demo requirement.
+        // If we wanted real IP, we would uncomment the fetch below.
+        /*
         const res = await fetch('https://ipapi.co/json/');
         const data = await res.json();
+        if (data.ip) { ... }
+        */
         
-        if (data.ip) {
-          const realGeo: RealGeoData = {
-            ip: data.ip,
-            city: data.city,
-            region: data.region,
-            country: data.country_name,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            org: data.org
-          };
-          setGeoData(realGeo);
-          addConsoleLog(`User Located: ${realGeo.city}, ${realGeo.country} (${realGeo.org})`, "success");
+        // Mock success with default data
+        const realGeo = geoData!;
+        addConsoleLog(`User Located: ${realGeo.city}, ${realGeo.country} (${realGeo.org})`, "success");
 
-          // 2. Update Server Nodes with Real Physics-Based Latency
-          const updatedNodes = INITIAL_NODES.map(node => {
-            const serverCoords = SERVER_REAL_COORDS[node.city];
-            if (serverCoords) {
-              const realLatency = calculateLatency(
-                realGeo.latitude, realGeo.longitude,
-                serverCoords.lat, serverCoords.lon
-              );
-              return { ...node, latency: realLatency };
-            }
-            return node;
-          });
-          setServerNodes(updatedNodes);
-          setSelectedServer(updatedNodes[0]); // Default to first (usually best)
-          addConsoleLog("Server latency matrix calibrated using geodesic distance.", "success");
+        // 2. Update Server Nodes with Real Physics-Based Latency
+        const updatedNodes = INITIAL_NODES.map(node => {
+        const serverCoords = SERVER_REAL_COORDS[node.city];
+        if (serverCoords) {
+            const realLatency = calculateLatency(
+            realGeo.latitude, realGeo.longitude,
+            serverCoords.lat, serverCoords.lon
+            );
+            return { ...node, latency: realLatency };
         }
+        return node;
+        });
+        setServerNodes(updatedNodes);
+        setSelectedServer(updatedNodes[0]); // Default to first (usually best)
+        addConsoleLog("Server latency matrix calibrated using geodesic distance.", "success");
+        
       } catch (e) {
         addConsoleLog("Network Discovery Failed. Using fallback metrics.", "error");
       }
@@ -979,6 +1051,7 @@ export default function App() {
                       isMultiHop={isMultiHop}
                       entryNode={entryNode}
                       nodes={serverNodes}
+                      userGeo={geoData}
                     />
                     <div className="absolute bottom-4 left-4 right-4 z-20">
                       <ConsoleLog logs={consoleLogs} />
@@ -1184,6 +1257,7 @@ export default function App() {
                         isMultiHop={isMultiHop}
                         entryNode={entryNode}
                         nodes={serverNodes}
+                        userGeo={geoData}
                     />
                 </div>
                 </div>
