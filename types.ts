@@ -38,15 +38,27 @@ export enum ConnectionState {
 }
 
 export interface AiInsight {
+  id?: string;
   type: 'optimization' | 'security' | 'prediction';
   message: string;
   confidence: number;
   timestamp: string;
+  details?: string;
 }
 
 export interface SpeedTestResult {
   download: number; // Mbps
   upload: number; // Mbps
   ping: number; // ms
-  status: 'idle' | 'running' | 'completed';
+  status: 'idle' | 'ping' | 'download' | 'upload' | 'completed';
+  progress: number; // 0-100
+}
+
+export interface SpeedTestHistoryItem {
+  id: number;
+  timestamp: string;
+  download: number;
+  upload: number;
+  ping: number;
+  server: string;
 }
