@@ -201,7 +201,9 @@ const LiveMap = ({
 }) => {
   const userPos = VISUAL_MAP_COORDS['User'];
   const targetPos = VISUAL_MAP_COORDS[selectedServer.city] || { x: 50, y: 50 };
-  const entryPos = isMultiHop ? (VISUAL_MAP_COORDS[entryNode.city] || { x: 50, y: 50 }) : userPos;
+  
+  // Logic Fix: If MultiHop, first leg goes to EntryNode. If SingleHop, first leg goes directly to Target.
+  const firstLegEnd = isMultiHop ? (VISUAL_MAP_COORDS[entryNode.city] || { x: 50, y: 50 }) : targetPos;
 
   const calculatePath = (start: GeoCords, end: GeoCords) => {
     const midX = (start.x + end.x) / 2;
@@ -223,17 +225,20 @@ const LiveMap = ({
         </defs>
         {(isConnected) && (
           <>
+            {/* First Leg: User -> (Entry or Target) */}
             <path 
-              d={calculatePath(userPos, entryPos)} 
+              d={calculatePath(userPos, firstLegEnd)} 
               fill="none" 
               stroke="url(#grad1)" 
               strokeWidth="0.5" 
               className="animate-dash"
               strokeDasharray="5"
             />
+            
+            {/* Second Leg: Entry -> Target (Only if MultiHop) */}
             {isMultiHop && (
               <path 
-                d={calculatePath(entryPos, targetPos)} 
+                d={calculatePath(firstLegEnd, targetPos)} 
                 fill="none" 
                 stroke="#22c55e" 
                 strokeWidth="0.5" 
@@ -485,6 +490,10 @@ export default function App() {
   const [safetyMode, setSafetyMode] = useState<'standard' | 'family' | 'strict'>('standard');
   const [autoReconnect, setAutoReconnect] = useState(true);
   const [optimizationMode, setOptimizationMode] = useState('speed');
+  
+  // New Settings States
+  const [customDns, setCustomDns] = useState('1.1.1.1');
+  const [splitTunneling, setSplitTunneling] = useState(false);
 
   // Advanced Filter State
   const [activeFilters, setActiveFilters] = useState<Record<string, boolean>>({
@@ -618,7 +627,8 @@ export default function App() {
 
     const steps = [
       { msg: `Interface Up: ${linkInfo.type.toUpperCase()} (${linkInfo.downlink}Mbps link)`, type: 'info', delay: 200 },
-      { msg: `Route: ${geoData?.city || 'Local'} -> ${entryNode.city} -> ${selectedServer.city}`, type: 'info', delay: 600 },
+      // Update logic: Route reflects multi-hop state
+      { msg: `Route: ${geoData?.city || 'Local'} -> ${isMultiHop ? entryNode.city + ' -> ' : ''}${selectedServer.city}`, type: 'info', delay: 600 },
       { msg: `Generating Keys (Curve25519) for ${protocol}...`, type: 'info', delay: 1200 },
       { msg: "Handshake: Verifying remote certificate...", type: 'warning', delay: 1800 },
       { msg: `Tunnel Active. Virtual IP: ${selectedServer.ip}`, type: 'success', delay: 2400 },
@@ -1386,39 +1396,144 @@ export default function App() {
 
             {/* SETTINGS TAB */}
             {activeTab === 'settings' && (
-              <div className="animate-fade-in-up max-w-2xl mx-auto pb-8">
-                <div className="bg-white dark:bg-[#0f111a] rounded-3xl p-8 md:p-10 border border-slate-300 dark:border-white/5 text-center shadow-xl">
-                    <Settings className="w-16 h-16 text-slate-300 dark:text-slate-700 mx-auto mb-6" />
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-3">Application Settings</h2>
-                    <p className="text-slate-500 dark:text-slate-400 mb-10">Configure protocols, account details, and advanced routing options.</p>
-                    <div className="grid gap-4 text-left">
-                        <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
-                            <div>
-                                <h4 className="font-bold text-slate-900 dark:text-white">Auto Reconnect</h4>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Restore connection on drop</p>
-                            </div>
-                            <button onClick={() => setAutoReconnect(!autoReconnect)} className={`w-14 h-8 rounded-full relative cursor-pointer transition-all duration-300 ${autoReconnect ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
-                                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${autoReconnect ? 'left-7' : 'left-1'}`}></div>
-                            </button>
-                        </div>
-                        <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
-                            <div>
-                                <h4 className="font-bold text-slate-900 dark:text-white">Kill Switch</h4>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Block internet access if VPN drops.</p>
-                            </div>
-                            <button onClick={() => setKillSwitch(!killSwitch)} className={`w-14 h-8 rounded-full relative cursor-pointer transition-all duration-300 ${killSwitch ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}>
-                                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md ${killSwitch ? 'left-7' : 'left-1'}`}></div>
-                            </button>
-                        </div>
-                        <div className="p-6 bg-slate-50 dark:bg-[#0a0a0a] rounded-2xl border border-slate-300 dark:border-white/5 flex justify-between items-center">
-                            <div>
-                                <h4 className="font-bold text-slate-900 dark:text-white">Data Usage</h4>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Total lifetime usage: <span className="text-blue-500 font-mono">{totalUsage > 1024 ? `${(totalUsage/1024).toFixed(2)} GB` : `${totalUsage.toFixed(1)} MB`}</span></p>
-                            </div>
-                            <div className="h-2 w-24 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
-                                <div className="h-full bg-purple-500 w-3/4"></div>
-                            </div>
-                        </div>
+              <div className="animate-fade-in-up max-w-4xl mx-auto space-y-8 pb-12">
+                
+                {/* Account Section */}
+                <div className="bg-white dark:bg-[#0f111a] rounded-2xl p-6 md:p-8 border border-slate-300 dark:border-white/5 shadow-xl">
+                   <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                      <User className="w-5 h-5 text-blue-500" /> Account Status
+                   </h3>
+                   <div className="flex flex-col md:flex-row items-center gap-6">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                         OP
+                      </div>
+                      <div className="flex-1 text-center md:text-left">
+                         <div className="font-bold text-xl text-slate-900 dark:text-white">Open Access User</div>
+                         <div className="text-slate-500 text-sm">Anonymous Session</div>
+                         <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold rounded-full border border-green-500/20">
+                            <Check className="w-3 h-3" /> LIFETIME FREE ACCESS
+                         </div>
+                      </div>
+                      <div className="text-right hidden md:block">
+                         <div className="text-xs text-slate-400 uppercase font-bold">Access Level</div>
+                         <div className="font-mono text-slate-900 dark:text-white">Unlimited</div>
+                         <div className="mt-2 text-xs text-blue-500 font-bold">Community Edition</div>
+                      </div>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    
+                    {/* Connection Preferences */}
+                    <div className="bg-white dark:bg-[#0f111a] rounded-2xl p-6 border border-slate-300 dark:border-white/5 shadow-xl flex flex-col">
+                       <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                          <Wifi className="w-5 h-5 text-blue-500" /> Connection Preferences
+                       </h3>
+                       
+                       <div className="space-y-6 flex-1">
+                          <div>
+                             <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 block">VPN Protocol</label>
+                             <div className="grid grid-cols-3 gap-2">
+                                {['WireGuard', 'OpenVPN', 'IKEv2'].map(p => (
+                                   <button 
+                                      key={p}
+                                      onClick={() => setProtocol(p)}
+                                      className={`px-3 py-2 rounded-lg text-xs font-bold border transition-all ${protocol === p ? 'bg-blue-500 text-white border-blue-500' : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-500'}`}
+                                   >
+                                      {p}
+                                   </button>
+                                ))}
+                             </div>
+                             <p className="text-[10px] text-slate-400 mt-2">
+                                {protocol === 'WireGuard' && "Best for speed and modern security."}
+                                {protocol === 'OpenVPN' && "Maximum compatibility and stability."}
+                                {protocol === 'IKEv2' && "Fast reconnection, good for mobile."}
+                             </p>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                             <div>
+                                <div className="font-bold text-sm text-slate-900 dark:text-white">Auto-Connect</div>
+                                <div className="text-xs text-slate-500">Connect on app launch</div>
+                             </div>
+                             <button onClick={() => setAutoReconnect(!autoReconnect)} className={`w-12 h-7 rounded-full relative transition-colors ${autoReconnect ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${autoReconnect ? 'left-6' : 'left-1'}`}></div>
+                             </button>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                             <div>
+                                <div className="font-bold text-sm text-slate-900 dark:text-white">Kill Switch</div>
+                                <div className="text-xs text-slate-500">Block traffic if VPN drops</div>
+                             </div>
+                             <button onClick={() => setKillSwitch(!killSwitch)} className={`w-12 h-7 rounded-full relative transition-colors ${killSwitch ? 'bg-red-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${killSwitch ? 'left-6' : 'left-1'}`}></div>
+                             </button>
+                          </div>
+                       </div>
+                    </div>
+
+                    {/* Advanced Routing */}
+                    <div className="bg-white dark:bg-[#0f111a] rounded-2xl p-6 border border-slate-300 dark:border-white/5 shadow-xl flex flex-col">
+                       <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6 flex items-center gap-2">
+                          <Layers className="w-5 h-5 text-purple-500" /> Advanced Routing
+                       </h3>
+
+                       <div className="space-y-6 flex-1">
+                          <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5">
+                             <div className="flex items-center justify-between mb-2">
+                                <div className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                                   <Globe className="w-4 h-4 text-slate-400"/> Multi-Hop
+                                </div>
+                                <button onClick={() => setIsMultiHop(!isMultiHop)} className={`w-10 h-6 rounded-full relative transition-colors ${isMultiHop ? 'bg-purple-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${isMultiHop ? 'left-5' : 'left-1'}`}></div>
+                                </button>
+                             </div>
+                             <div className="text-xs text-slate-500 mb-3">Route traffic through two locations for double encryption.</div>
+                             {isMultiHop && (
+                                <div className="flex items-center gap-2 text-xs font-mono bg-white dark:bg-black/20 p-2 rounded border border-slate-200 dark:border-white/10">
+                                   <span className="text-purple-500 font-bold">ENTRY:</span>
+                                   <select 
+                                      value={entryNode.id}
+                                      onChange={(e) => setEntryNode(serverNodes.find(n => n.id === e.target.value) || serverNodes[0])}
+                                      className="bg-transparent outline-none text-slate-700 dark:text-slate-300"
+                                   >
+                                      {serverNodes.map(n => <option key={n.id} value={n.id}>{n.city}</option>)}
+                                   </select>
+                                </div>
+                             )}
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                             <div>
+                                <div className="font-bold text-sm text-slate-900 dark:text-white">Split Tunneling</div>
+                                <div className="text-xs text-slate-500">Exclude apps from VPN</div>
+                             </div>
+                             <button onClick={() => setSplitTunneling(!splitTunneling)} className={`w-12 h-7 rounded-full relative transition-colors ${splitTunneling ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${splitTunneling ? 'left-6' : 'left-1'}`}></div>
+                             </button>
+                          </div>
+
+                          <div>
+                             <label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 block">Custom DNS</label>
+                             <div className="flex items-center gap-2">
+                                <input 
+                                   type="text" 
+                                   value={customDns}
+                                   onChange={(e) => setCustomDns(e.target.value)}
+                                   placeholder="e.g. 1.1.1.1"
+                                   className="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-xs font-mono text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-colors"
+                                />
+                                <button 
+                                   onClick={() => setCustomDns('1.1.1.1')}
+                                   title="Reset to Cloudflare DNS"
+                                   className="p-2 bg-slate-100 dark:bg-white/10 rounded-lg hover:bg-slate-200 dark:hover:bg-white/20 transition-colors"
+                                >
+                                   <RefreshCw className="w-4 h-4 text-slate-500" />
+                                </button>
+                             </div>
+                          </div>
+                       </div>
                     </div>
                 </div>
               </div>
